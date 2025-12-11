@@ -1,11 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const PickAnswerEditor = ({ slide, onUpdate }) => {
   const { t } = useTranslation();
   const [question, setQuestion] = useState(slide?.question || '');
-  const [options, setOptions] = useState(slide?.options || ['', '']);
+  // Normalize options: extract text if option is an object
+  const normalizeOptions = (opts) => {
+    if (!opts || opts.length === 0) return ['', ''];
+    return opts.map(opt => typeof opt === 'string' ? opt : (opt?.text || ''));
+  };
+  const [options, setOptions] = useState(normalizeOptions(slide?.options) || ['', '']);
+
+  // Update when slide changes
+  useEffect(() => {
+    if (slide) {
+      setQuestion(slide.question || '');
+      setOptions(normalizeOptions(slide.options) || ['', '']);
+    }
+  }, [slide]);
 
   // Update parent when question changes
   const handleQuestionChange = (value) => {

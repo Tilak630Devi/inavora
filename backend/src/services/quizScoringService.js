@@ -1,4 +1,5 @@
 const ParticipantScore = require('../models/ParticipantScore');
+const Logger = require('../utils/logger');
 
 /**
  * Quiz Scoring Service
@@ -113,7 +114,7 @@ async function updateParticipantScore({
     await participantScore.save();
     return participantScore;
   } catch (error) {
-    console.error('Error updating participant score:', error);
+    Logger.error('Error updating participant score', error);
     throw error;
   }
 }
@@ -139,7 +140,7 @@ async function getLeaderboard(presentationId, limit = 10) {
       quizCount: participant.quizScores.length
     }));
   } catch (error) {
-    console.error('Error fetching leaderboard:', error);
+    Logger.error('Error fetching leaderboard', error);
     throw error;
   }
 }
@@ -175,7 +176,7 @@ async function getLeaderboardWithDeltas(presentationId, slideId, limit = 10) {
       };
     });
   } catch (error) {
-    console.error('Error fetching leaderboard with deltas:', error);
+    Logger.error('Error fetching leaderboard with deltas', error);
     throw error;
   }
 }
@@ -235,7 +236,7 @@ async function getSingleQuizLeaderboard(presentationId, slideId, limit = 10) {
 
     return quizResults;
   } catch (error) {
-    console.error('Error fetching single quiz leaderboard:', error);
+    Logger.error('Error fetching single quiz leaderboard', error);
     throw error;
   }
 }
@@ -323,7 +324,7 @@ async function getCumulativeLeaderboards(presentationId, quizSlides = [], limit 
       finalLeaderboard,
     };
   } catch (error) {
-    console.error('Error building cumulative leaderboards:', error);
+    Logger.error('Error building cumulative leaderboards', error);
     throw error;
   }
 }
@@ -341,7 +342,7 @@ async function getParticipantScore(presentationId, participantId) {
       participantId
     }).lean();
   } catch (error) {
-    console.error('Error fetching participant score:', error);
+    Logger.error('Error fetching participant score', error);
     throw error;
   }
 }
@@ -355,7 +356,7 @@ async function clearPresentationScores(presentationId) {
   try {
     return await ParticipantScore.deleteMany({ presentationId });
   } catch (error) {
-    console.error('Error clearing presentation scores:', error);
+    Logger.error('Error clearing presentation scores', error);
     throw error;
   }
 }

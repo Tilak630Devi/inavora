@@ -1,4 +1,5 @@
 const cloudinary = require('cloudinary').v2;
+const Logger = require('../utils/logger');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -30,7 +31,7 @@ async function uploadImage(base64Image, folder = 'inavora/pin-images') {
       publicId: result.public_id
     };
   } catch (error) {
-    console.error('Cloudinary upload error:', error);
+    Logger.error('Cloudinary upload error', error);
     throw new Error('Failed to upload image to Cloudinary');
   }
 }
@@ -44,7 +45,7 @@ async function deleteImage(publicId) {
   try {
     await cloudinary.uploader.destroy(publicId);
   } catch (error) {
-    console.error('Cloudinary delete error:', error);
+    Logger.error('Cloudinary delete error', error);
     throw new Error('Failed to delete image from Cloudinary');
   }
 }
@@ -68,7 +69,7 @@ async function uploadDocument(base64Document, folder = 'inavora/documents') {
       publicId: result.public_id
     };
   } catch (error) {
-    console.error('Cloudinary document upload error:', error);
+    Logger.error('Cloudinary document upload error', error);
     throw new Error('Failed to upload document to Cloudinary');
   }
 }

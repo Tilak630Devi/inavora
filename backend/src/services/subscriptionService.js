@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Logger = require('../utils/logger');
 
 const updateExpiredSubscriptions = async () => {
     try {
@@ -25,7 +26,7 @@ const updateExpiredSubscriptions = async () => {
             message: `Updated ${updatedCount} expired subscription(s)`
         };
     } catch (error) {
-        console.error('Error updating expired subscriptions:', error);
+        Logger.error('Error updating expired subscriptions', error);
         return {
             success: false,
             error: error.message

@@ -1,32 +1,32 @@
 const JobPosting = require('../models/JobPosting');
 const JobApplication = require('../models/JobApplication');
+const { AppError, asyncHandler } = require('../middleware/errorHandler');
+const Logger = require('../utils/logger');
 
 /**
  * Create a new job posting
+ * @route POST /api/job-postings
+ * @access Private (Admin)
  */
-const createJobPosting = async (req, res) => {
-  try {
-    const {
-      title,
-      department,
-      location,
-      type,
-      description,
-      requirements,
-      responsibilities,
-      benefits,
-      salaryRange,
-      experienceLevel,
-      status,
-      expiresAt
-    } = req.body;
+const createJobPosting = asyncHandler(async (req, res, next) => {
+  const {
+    title,
+    department,
+    location,
+    type,
+    description,
+    requirements,
+    responsibilities,
+    benefits,
+    salaryRange,
+    experienceLevel,
+    status,
+    expiresAt
+  } = req.body;
 
-    if (!title || !department || !description) {
-      return res.status(400).json({
-        success: false,
-        error: 'Title, department, and description are required'
-      });
-    }
+  if (!title || !department || !description) {
+    throw new AppError('Title, department, and description are required', 400, 'VALIDATION_ERROR');
+  }
 
     const jobPosting = new JobPosting({
       title,
@@ -44,261 +44,205 @@ const createJobPosting = async (req, res) => {
       expiresAt: expiresAt ? new Date(expiresAt) : null
     });
 
-    await jobPosting.save();
+  await jobPosting.save();
 
-    // Emit real-time event
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('job-posting-created', jobPosting);
-    }
-
-    res.status(201).json({
-      success: true,
-      message: 'Job posting created successfully',
-      data: jobPosting
-    });
-  } catch (error) {
-    console.error('Create job posting error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to create job posting'
-    });
+  const io = req.app.get('io');
+  if (io) {
+    io.emit('job-posting-created', jobPosting);
   }
-};
+
+  res.status(201).json({
+    success: true,
+    message: 'Job posting created successfully',
+    data: jobPosting
+  });
+});
 
 /**
  * Get all job postings
+ * @route GET /api/job-postings
+ * @access Private (Admin)
  */
-const getJobPostings = async (req, res) => {
-  try {
-    const { status, department, search, page = 1, limit = 10 } = req.query;
-    
-    const query = {};
-    if (status) query.status = status;
-    if (department) query.department = department;
-    if (search) {
-      query.$text = { $search: search };
-    }
-
-    const jobPostings = await JobPosting.find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .lean();
-
-    const total = await JobPosting.countDocuments(query);
-
-    res.status(200).json({
-      success: true,
-      data: {
-        jobPostings,
-        totalPages: Math.ceil(total / limit),
-        currentPage: parseInt(page),
-        total
-      }
-    });
-  } catch (error) {
-    console.error('Get job postings error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch job postings'
-    });
+const getJobPostings = asyncHandler(async (req, res, next) => {
+  const { status, department, search, page = 1, limit = 10 } = req.query;
+  
+  const query = {};
+  if (status) query.status = status;
+  if (department) query.department = department;
+  if (search) {
+    query.$text = { $search: search };
   }
-};
+
+  const jobPostings = await JobPosting.find(query)
+    .sort({ createdAt: -1 })
+    .limit(limit * 1)
+    .skip((page - 1) * limit)
+    .lean();
+
+  const total = await JobPosting.countDocuments(query);
+
+  res.status(200).json({
+    success: true,
+    data: {
+      jobPostings,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      total
+    }
+  });
+});
 
 /**
  * Get active job postings (for careers page)
+ * @route GET /api/job-postings/active
+ * @access Public
  */
-const getActiveJobPostings = async (req, res) => {
-  try {
-    const jobPostings = await JobPosting.find({
-      status: 'active',
-      $or: [
-        { expiresAt: null },
-        { expiresAt: { $gte: new Date() } }
-      ]
-    })
-      .sort({ createdAt: -1 })
-      .select('title department location type description responsibilities requirements createdAt')
-      .lean();
+const getActiveJobPostings = asyncHandler(async (req, res, next) => {
+  const jobPostings = await JobPosting.find({
+    status: 'active',
+    $or: [
+      { expiresAt: null },
+      { expiresAt: { $gte: new Date() } }
+    ]
+  })
+    .sort({ createdAt: -1 })
+    .select('title department location type description responsibilities requirements createdAt')
+    .lean();
 
-    res.status(200).json({
-      success: true,
-      data: jobPostings
-    });
-  } catch (error) {
-    console.error('Get active job postings error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch job postings'
-    });
-  }
-};
+  res.status(200).json({
+    success: true,
+    data: jobPostings
+  });
+});
 
 /**
  * Get single job posting by ID
+ * @route GET /api/job-postings/:id
+ * @access Public
  */
-const getJobPosting = async (req, res) => {
-  try {
-    const { id } = req.params;
+const getJobPosting = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
 
-    const jobPosting = await JobPosting.findById(id);
+  const jobPosting = await JobPosting.findById(id);
 
-    if (!jobPosting) {
-      return res.status(404).json({
-        success: false,
-        error: 'Job posting not found'
-      });
-    }
-
-    // Increment views
-    jobPosting.views += 1;
-    await jobPosting.save();
-
-    res.status(200).json({
-      success: true,
-      data: jobPosting
-    });
-  } catch (error) {
-    console.error('Get job posting error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch job posting'
-    });
+  if (!jobPosting) {
+    throw new AppError('Job posting not found', 404, 'RESOURCE_NOT_FOUND');
   }
-};
+
+  jobPosting.views += 1;
+  await jobPosting.save();
+
+  res.status(200).json({
+    success: true,
+    data: jobPosting
+  });
+});
 
 /**
  * Update job posting
+ * @route PUT /api/job-postings/:id
+ * @access Private (Admin)
  */
-const updateJobPosting = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updateData = req.body;
+const updateJobPosting = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const updateData = req.body;
 
-    const jobPosting = await JobPosting.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    );
+  const jobPosting = await JobPosting.findByIdAndUpdate(
+    id,
+    updateData,
+    { new: true, runValidators: true }
+  );
 
-    if (!jobPosting) {
-      return res.status(404).json({
-        success: false,
-        error: 'Job posting not found'
-      });
-    }
-
-    // Emit real-time event
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('job-posting-updated', jobPosting);
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Job posting updated successfully',
-      data: jobPosting
-    });
-  } catch (error) {
-    console.error('Update job posting error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to update job posting'
-    });
+  if (!jobPosting) {
+    throw new AppError('Job posting not found', 404, 'RESOURCE_NOT_FOUND');
   }
-};
+
+  const io = req.app.get('io');
+  if (io) {
+    io.emit('job-posting-updated', jobPosting);
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Job posting updated successfully',
+    data: jobPosting
+  });
+});
 
 /**
  * Delete job posting
+ * @route DELETE /api/job-postings/:id
+ * @access Private (Admin)
  */
-const deleteJobPosting = async (req, res) => {
-  try {
-    const { id } = req.params;
+const deleteJobPosting = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
 
-    const jobPosting = await JobPosting.findByIdAndDelete(id);
+  const jobPosting = await JobPosting.findByIdAndDelete(id);
 
-    if (!jobPosting) {
-      return res.status(404).json({
-        success: false,
-        error: 'Job posting not found'
-      });
-    }
-
-    // Emit real-time event
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('job-posting-deleted', { id });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Job posting deleted successfully'
-    });
-  } catch (error) {
-    console.error('Delete job posting error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to delete job posting'
-    });
+  if (!jobPosting) {
+    throw new AppError('Job posting not found', 404, 'RESOURCE_NOT_FOUND');
   }
-};
+
+  const io = req.app.get('io');
+  if (io) {
+    io.emit('job-posting-deleted', { id });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Job posting deleted successfully'
+  });
+});
 
 /**
  * Get dashboard statistics
+ * @route GET /api/job-postings/dashboard/stats
+ * @access Private (Admin)
  */
-const getDashboardStats = async (req, res) => {
-  try {
-    const totalJobs = await JobPosting.countDocuments();
-    const activeJobs = await JobPosting.countDocuments({ status: 'active' });
-    const totalApplications = await JobApplication.countDocuments();
-    const pendingApplications = await JobApplication.countDocuments({ status: 'pending' });
-    const recentApplications = await JobApplication.find()
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .select('firstName lastName email position status createdAt')
-      .lean();
+const getDashboardStats = asyncHandler(async (req, res, next) => {
+  const totalJobs = await JobPosting.countDocuments();
+  const activeJobs = await JobPosting.countDocuments({ status: 'active' });
+  const totalApplications = await JobApplication.countDocuments();
+  const pendingApplications = await JobApplication.countDocuments({ status: 'pending' });
+  const recentApplications = await JobApplication.find()
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .select('firstName lastName email position status createdAt')
+    .lean();
 
-    const applicationsByStatus = await JobApplication.aggregate([
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 }
-        }
+  const applicationsByStatus = await JobApplication.aggregate([
+    {
+      $group: {
+        _id: '$status',
+        count: { $sum: 1 }
       }
-    ]);
+    }
+  ]);
 
-    const applicationsByPosition = await JobApplication.aggregate([
-      {
-        $group: {
-          _id: '$position',
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { count: -1 } },
-      { $limit: 10 }
-    ]);
-
-    res.status(200).json({
-      success: true,
-      data: {
-        totalJobs,
-        activeJobs,
-        totalApplications,
-        pendingApplications,
-        recentApplications,
-        applicationsByStatus,
-        applicationsByPosition
+  const applicationsByPosition = await JobApplication.aggregate([
+    {
+      $group: {
+        _id: '$position',
+        count: { $sum: 1 }
       }
-    });
-  } catch (error) {
-    console.error('Get dashboard stats error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch dashboard statistics'
-    });
-  }
-};
+    },
+    { $sort: { count: -1 } },
+    { $limit: 10 }
+  ]);
+
+  res.status(200).json({
+    success: true,
+    data: {
+      totalJobs,
+      activeJobs,
+      totalApplications,
+      pendingApplications,
+      recentApplications,
+      applicationsByStatus,
+      applicationsByPosition
+    }
+  });
+});
 
 module.exports = {
   createJobPosting,

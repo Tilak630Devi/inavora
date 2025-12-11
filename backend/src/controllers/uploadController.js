@@ -1,158 +1,106 @@
 const cloudinaryService = require('../services/cloudinaryService');
 const Image = require('../models/Image');
+const { AppError, asyncHandler } = require('../middleware/errorHandler');
+const Logger = require('../utils/logger');
 
 /**
  * Upload image to Cloudinary
+ * @route POST /api/upload/image
+ * @access Private
+ * @param {string} req.body.image - Base64 encoded image data
+ * @returns {Object} Uploaded image URL and public ID
  */
-const uploadImage = async (req, res) => {
-  try {
-    const { image } = req.body;
-    const userId = req.userId;
+const uploadImage = asyncHandler(async (req, res, next) => {
+  const { image } = req.body;
+  const userId = req.userId;
 
-    if (!image) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Image data is required' 
-      });
-    }
+  if (!image) {
+    throw new AppError('Image data is required', 400, 'VALIDATION_ERROR');
+  }
 
-    // Validate base64 format
-    if (!image.startsWith('data:image/')) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Invalid image format. Must be base64 encoded image.' 
-      });
-    }
+  if (!image.startsWith('data:image/')) {
+    throw new AppError('Invalid image format. Must be base64 encoded image.', 400, 'VALIDATION_ERROR');
+  }
 
-    // Check approximate size (base64 is ~33% larger than original)
-    const sizeInBytes = (image.length * 3) / 4;
-    const sizeInMB = sizeInBytes / (1024 * 1024);
-    
-    if (sizeInMB > 10) {
-      return res.status(400).json({ 
-        success: false,
-        error: `Image too large (${sizeInMB.toFixed(1)}MB). Maximum size is 10MB.` 
-      });
-    }
+  const sizeInBytes = (image.length * 3) / 4;
+  const sizeInMB = sizeInBytes / (1024 * 1024);
+  
+  if (sizeInMB > 10) {
+    throw new AppError(`Image too large (${sizeInMB.toFixed(1)}MB). Maximum size is 10MB.`, 400, 'VALIDATION_ERROR');
+  }
 
-    // Upload to Cloudinary
-    const result = await cloudinaryService.uploadImage(image);
+  const result = await cloudinaryService.uploadImage(image);
 
-    // Save image record with user ownership
-    const imageRecord = new Image({
-      userId,
+  const imageRecord = new Image({
+    userId,
+    imageUrl: result.url,
+    publicId: result.publicId
+  });
+  await imageRecord.save();
+
+  res.status(200).json({
+    success: true,
+    message: 'Image uploaded successfully',
+    data: {
       imageUrl: result.url,
       publicId: result.publicId
-    });
-    await imageRecord.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Image uploaded successfully',
-      data: {
-        imageUrl: result.url,
-        publicId: result.publicId
-      }
-    });
-  } catch (error) {
-    console.error('Upload image error:', error);
-    
-    // Provide specific error messages
-    let errorMessage = 'Failed to upload image';
-    
-    if (error.message.includes('File size too large')) {
-      errorMessage = 'Image file is too large. Please use an image under 5MB.';
-    } else if (error.message.includes('Invalid image')) {
-      errorMessage = 'Invalid image file. Please use PNG, JPG, or GIF format.';
-    } else if (error.message.includes('Cloudinary')) {
-      errorMessage = 'Image upload service error. Please try again.';
-    } else if (error.message) {
-      errorMessage = error.message;
     }
-    
-    res.status(500).json({ 
-      success: false,
-      error: errorMessage
-    });
-  }
-};
+  });
+});
 
 /**
  * Delete image from Cloudinary
+ * @route DELETE /api/upload/image
+ * @access Private
+ * @param {string} req.body.publicId - Cloudinary public ID
+ * @returns {Object} Success message
  */
-const deleteImage = async (req, res) => {
-  try {
-    const { publicId } = req.body;
-    const userId = req.userId;
+const deleteImage = asyncHandler(async (req, res, next) => {
+  const { publicId } = req.body;
+  const userId = req.userId;
 
-    if (!publicId) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Public ID is required' 
-      });
-    }
-
-    // Check if image exists and belongs to user
-    const imageRecord = await Image.findOne({ publicId });
-
-    if (!imageRecord) {
-      return res.status(404).json({ 
-        success: false,
-        error: 'Image not found' 
-      });
-    }
-
-    // Verify ownership
-    if (imageRecord.userId !== userId.toString()) {
-      return res.status(403).json({ 
-        success: false,
-        error: 'You do not have permission to delete this image' 
-      });
-    }
-
-    // Delete from Cloudinary
-    await cloudinaryService.deleteImage(publicId);
-
-    // Delete from database
-    await Image.deleteOne({ publicId });
-
-    res.status(200).json({
-      success: true,
-      message: 'Image deleted successfully'
-    });
-  } catch (error) {
-    console.error('Delete image error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message || 'Failed to delete image' 
-    });
+  if (!publicId) {
+    throw new AppError('Public ID is required', 400, 'VALIDATION_ERROR');
   }
-};
+
+  const imageRecord = await Image.findOne({ publicId });
+
+  if (!imageRecord) {
+    throw new AppError('Image not found', 404, 'RESOURCE_NOT_FOUND');
+  }
+
+  if (imageRecord.userId.toString() !== userId.toString()) {
+    throw new AppError('You do not have permission to delete this image', 403, 'FORBIDDEN');
+  }
+
+  await cloudinaryService.deleteImage(publicId);
+  await Image.deleteOne({ publicId });
+
+  res.status(200).json({
+    success: true,
+    message: 'Image deleted successfully'
+  });
+});
 
 /**
  * Get user's uploaded images
+ * @route GET /api/upload/images
+ * @access Private
+ * @returns {Object} Array of user's uploaded images
  */
-const getUserImages = async (req, res) => {
-  try {
-    const userId = req.userId;
+const getUserImages = asyncHandler(async (req, res, next) => {
+  const userId = req.userId;
 
-    // Get images uploaded by this user
-    const images = await Image.find({ userId })
-      .sort({ uploadedAt: -1 })
-      .select('imageUrl publicId uploadedAt');
+  const images = await Image.find({ userId })
+    .sort({ uploadedAt: -1 })
+    .select('imageUrl publicId uploadedAt')
+    .lean();
 
-    res.status(200).json({
-      success: true,
-      data: images
-    });
-  } catch (error) {
-    console.error('Get user images error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message || 'Failed to fetch images' 
-    });
-  }
-};
+  res.status(200).json({
+    success: true,
+    data: images
+  });
+});
 
 module.exports = {
   uploadImage,

@@ -20,22 +20,26 @@ const PickAnswerParticipantInput = ({
 
       {!hasSubmitted ? (
         <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
-          {slide.options?.map((option, index) => (
-            <button
-              key={index}
-              onClick={() => onSelect(option)}
-              className={`w-full p-4 sm:p-6 rounded-xl text-left text-base sm:text-xl font-semibold transition-all active:scale-[0.98] ${selectedAnswer === option
-                ? 'bg-gradient-to-r from-[#388E3C] to-[#2E7D32] text-white shadow-lg shadow-[#4CAF50]/30 scale-[1.02]'
-                : 'bg-[#2A2A2A] text-[#E0E0E0] hover:bg-[#333333] border border-[#2F2F2F]'
-                }`}
-            >
-              {option}
-            </button>
-          ))}
+          {slide.options?.map((option, index) => {
+            const optionText = typeof option === 'string' ? option : (option?.text || `Option ${index + 1}`);
+            return (
+              <button
+                key={index}
+                onClick={() => onSelect(option)}
+                className={`w-full p-4 sm:p-6 rounded-xl text-left text-base sm:text-xl font-semibold transition-all active:scale-[0.98] ${selectedAnswer === option
+                  ? 'bg-gradient-to-r from-[#388E3C] to-[#2E7D32] text-white shadow-lg shadow-[#4CAF50]/30 scale-[1.02]'
+                  : 'bg-[#2A2A2A] text-[#E0E0E0] hover:bg-[#333333] border border-[#2F2F2F]'
+                  }`}
+              >
+                {optionText}
+              </button>
+            );
+          })}
         </div>
       ) : (
         <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
           {slide.options?.map((option, index) => {
+            const optionText = typeof option === 'string' ? option : (option?.text || `Option ${index + 1}`);
             const voteCount = voteCounts[option] || 0;
             const maxVotes = Math.max(...Object.values(voteCounts || {}), 1);
             const percentage = maxVotes > 0 ? (voteCount / maxVotes) * 100 : 0;
@@ -52,7 +56,7 @@ const PickAnswerParticipantInput = ({
                   />
                   <div className="relative h-full flex items-center justify-between px-4 sm:px-6">
                     <span className="text-base sm:text-lg font-semibold text-[#E0E0E0]">
-                      {option}
+                      {optionText}
                       {selectedAnswer === option && (
                         <span className="ml-2 text-[#4CAF50]">✓</span>
                       )}

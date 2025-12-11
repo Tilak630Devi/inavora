@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Presentation = require('../models/Presentation');
 const Slide = require('../models/Slide');
 const { isSubscriptionActive } = require('../services/subscriptionService');
+const Logger = require('../utils/logger');
 
 const checkSlideLimit = async (req, res, next) => {
     try {
@@ -28,7 +29,7 @@ const checkSlideLimit = async (req, res, next) => {
 
         next();
     } catch (error) {
-        console.error('Check slide limit error:', error);
+        Logger.error('Check slide limit error', error);
         res.status(500).json({ error: 'Failed to check plan limits' });
     }
 };
@@ -46,7 +47,7 @@ const checkAudienceLimit = async (userId, presentationId, currentCount) => {
 
         return true;
     } catch (error) {
-        console.error('Check audience limit error:', error);
+        Logger.error('Check audience limit error', error);
         return false;
     }
 };

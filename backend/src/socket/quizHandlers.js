@@ -2,6 +2,7 @@ const Slide = require('../models/Slide');
 const Response = require('../models/Response');
 const quizSessionService = require('../services/quizSessionService');
 const quizScoringService = require('../services/quizScoringService');
+const Logger = require('../utils/logger');
 
 /**
  * Attach quiz-related socket handlers
@@ -56,7 +57,7 @@ function attachQuizHandlers(io, socket) {
             });
 
           } catch (autoEndError) {
-            console.error('Error auto-ending quiz:', autoEndError);
+            Logger.error('Error auto-ending quiz', autoEndError);
             io.to(`presenter-${presentationId}`).emit('error', {
               message: 'Quiz ended but results could not be finalized automatically',
             });
@@ -79,7 +80,7 @@ function attachQuizHandlers(io, socket) {
       });
 
     } catch (error) {
-      console.error('Error starting quiz:', error);
+      Logger.error('Error starting quiz', error);
       socket.emit('error', { message: 'Failed to start quiz' });
     }
   });
@@ -169,7 +170,7 @@ function attachQuizHandlers(io, socket) {
       });
 
     } catch (error) {
-      console.error('Error submitting quiz answer:', error);
+      Logger.error('Error submitting quiz answer', error);
       socket.emit('error', { message: 'Failed to submit answer' });
     }
   });
@@ -218,7 +219,7 @@ function attachQuizHandlers(io, socket) {
       });
 
     } catch (error) {
-      console.error('Error ending quiz:', error);
+      Logger.error('Error ending quiz', error);
       socket.emit('error', { message: 'Failed to end quiz' });
     }
   });
@@ -248,7 +249,7 @@ function attachQuizHandlers(io, socket) {
         results
       });
     } catch (error) {
-      console.error('Error fetching quiz state:', error);
+      Logger.error('Error fetching quiz state', error);
       socket.emit('error', { message: 'Failed to fetch quiz state' });
     }
   });
@@ -271,7 +272,7 @@ function attachQuizHandlers(io, socket) {
       });
 
     } catch (error) {
-      console.error('Error fetching leaderboard:', error);
+      Logger.error('Error fetching leaderboard', error);
       socket.emit('error', { message: 'Failed to fetch leaderboard' });
     }
   });

@@ -9,23 +9,107 @@ const { checkSlideLimit } = require('../middleware/checkPlanLimits');
 router.use(verifyToken);
 
 /**
- * @route   POST /api/presentations
- * @desc    Create a new presentation
- * @access  Private
+ * @swagger
+ * /api/presentations:
+ *   post:
+ *     summary: Create a new presentation
+ *     tags: [Presentations]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: My New Presentation
+ *     responses:
+ *       201:
+ *         description: Presentation created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 presentation:
+ *                   $ref: '#/components/schemas/Presentation'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
  */
 router.post('/', presentationController.createPresentation);
 
 /**
- * @route   GET /api/presentations
- * @desc    Get all presentations for the logged-in user
- * @access  Private
+ * @swagger
+ * /api/presentations:
+ *   get:
+ *     summary: Get all presentations for the logged-in user
+ *     tags: [Presentations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: List of presentations
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     presentations:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Presentation'
+ *                     totalPages:
+ *                       type: number
+ *                     currentPage:
+ *                       type: number
  */
 router.get('/', presentationController.getUserPresentations);
 
 /**
- * @route   GET /api/presentations/:id
- * @desc    Get a single presentation by ID with all slides
- * @access  Private
+ * @swagger
+ * /api/presentations/{id}:
+ *   get:
+ *     summary: Get a single presentation by ID with all slides
+ *     tags: [Presentations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Presentation ID
+ *     responses:
+ *       200:
+ *         description: Presentation details with slides
+ *       404:
+ *         description: Presentation not found
  */
 router.get('/:id', presentationController.getPresentationById);
 

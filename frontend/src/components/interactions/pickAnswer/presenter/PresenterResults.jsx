@@ -1,4 +1,5 @@
 import { Bar } from 'react-chartjs-2';
+import { useTranslation } from 'react-i18next';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -19,14 +20,19 @@ ChartJS.register(
 );
 
 const PickAnswerPresenterResults = ({ options = [], voteCounts = {}, totalResponses = 0 }) => {
-  const labels = options;
-  const data = labels.map(option => voteCounts[option] || 0);
+  const { t } = useTranslation();
+  const labels = options.map(option => typeof option === 'string' ? option : (option?.text || 'Option'));
+  // Normalize keys for voteCounts lookup
+  const data = options.map(option => {
+    const key = typeof option === 'string' ? option : (option?.text || String(option));
+    return voteCounts[key] || 0;
+  });
 
   const chartData = {
     labels,
     datasets: [
       {
-        label: 'Votes',
+        label: t('slide_editors.pick_answer.votes_label'),
         data,
         backgroundColor: [
           '#3b82f6',
@@ -69,7 +75,7 @@ const PickAnswerPresenterResults = ({ options = [], voteCounts = {}, totalRespon
             const option = labels[context.dataIndex];
             const votes = context.parsed.y;
             const percentage = totalResponses > 0 ? Math.round((votes / totalResponses) * 100) : 0;
-            return `${option}: ${votes} votes (${percentage}%)`;
+            return `${option}: ${votes} ${t('slide_editors.pick_answer.votes')} (${percentage}%)`;
           },
         },
       },
@@ -101,7 +107,7 @@ const PickAnswerPresenterResults = ({ options = [], voteCounts = {}, totalRespon
   if (!labels.length) {
     return (
       <div className="bg-[#1F1F1F] rounded-2xl border border-[#2A2A2A] shadow-lg p-4 text-center">
-        <p className="text-[#6C6C6C] text-sm">No options available for this question</p>
+        <p className="text-[#6C6C6C] text-sm">{t('slide_editors.pick_answer.no_options_available')}</p>
       </div>
     );
   }

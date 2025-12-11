@@ -19,8 +19,12 @@ ChartJS.register(
 );
 
 const MCQPresenterResults = ({ options = [], voteCounts = {}, totalResponses = 0 }) => {
-  const labels = options;
-  const data = labels.map(option => voteCounts[option] || 0);
+  const labels = options.map(option => typeof option === 'string' ? option : (option?.text || 'Option'));
+  // Normalize keys for voteCounts lookup
+  const data = options.map(option => {
+    const key = typeof option === 'string' ? option : (option?.text || String(option));
+    return voteCounts[key] || 0;
+  });
 
   const chartData = {
     labels,

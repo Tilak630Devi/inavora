@@ -1,4 +1,5 @@
 import { BarChart2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import PickAnswerPresenterResults from './PresenterResults';
 
 const PickAnswerPresenterView = ({
@@ -6,17 +7,21 @@ const PickAnswerPresenterView = ({
   responses = [],
   sendSocketMessage
 }) => {
-  // Count votes for each option
+  const { t } = useTranslation();
+  
+  // Count votes for each option - normalize keys to strings
   const voteCounts = {};
   if (slide.options) {
     slide.options.forEach(option => {
-      voteCounts[option] = 0;
+      const key = typeof option === 'string' ? option : (option?.text || String(option));
+      voteCounts[key] = 0;
     });
   }
 
   responses.forEach(response => {
-    if (voteCounts.hasOwnProperty(response.answer)) {
-      voteCounts[response.answer]++;
+    const answerKey = typeof response.answer === 'string' ? response.answer : (response.answer?.text || String(response.answer));
+    if (voteCounts.hasOwnProperty(answerKey)) {
+      voteCounts[answerKey]++;
     }
   });
 
@@ -28,18 +33,18 @@ const PickAnswerPresenterView = ({
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
           <div>
             <h2 className="text-2xl sm:text-3xl font-semibold text-[#E0E0E0] leading-tight">
-              {slide?.question || 'Pick your answer'}
+              {slide?.question || t('slide_editors.pick_answer.default_title')}
             </h2>
             <p className="text-xs sm:text-sm text-[#6C6C6C] mt-2 flex items-center gap-1">
               <BarChart2 className="h-4 w-4" />
-              Live results updating in real-time
+              {t('slide_editors.pick_answer.live_results_updating')}
             </p>
           </div>
           
           <div className={`px-4 py-3 rounded-2xl border border-[#2A2A2A] bg-[#2A2A2A] text-[#6C6C6C] flex flex-col items-start gap-1 min-w-[12rem]`}>
             <div className="flex items-center gap-2 text-sm font-semibold">
               <BarChart2 className="h-4 w-4" />
-              <span>{totalResponses} responses</span>
+              <span>{totalResponses} {t('slide_editors.pick_answer.responses')}</span>
             </div>
           </div>
         </div>

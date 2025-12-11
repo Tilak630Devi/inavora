@@ -4,25 +4,31 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 const PickAnswerResult = ({ slide, data }) => {
   const { responses = [] } = data;
   
-  // Count votes for each option
+  // Count votes for each option - normalize keys to strings
   const voteCounts = {};
   if (slide.options) {
     slide.options.forEach(option => {
-      voteCounts[option] = 0;
+      const key = typeof option === 'string' ? option : (option?.text || String(option));
+      voteCounts[key] = 0;
     });
   }
 
   responses.forEach(response => {
-    if (voteCounts.hasOwnProperty(response.answer)) {
-      voteCounts[response.answer]++;
+    const answerKey = typeof response.answer === 'string' ? response.answer : (response.answer?.text || String(response.answer));
+    if (voteCounts.hasOwnProperty(answerKey)) {
+      voteCounts[answerKey]++;
     }
   });
 
   // Prepare data for chart
-  const chartData = slide.options?.map((option, index) => ({
-    name: option || `Option ${index + 1}`,
-    votes: voteCounts[option] || 0
-  })) || [];
+  const chartData = slide.options?.map((option, index) => {
+    const optionText = typeof option === 'string' ? option : (option?.text || `Option ${index + 1}`);
+    const key = typeof option === 'string' ? option : (option?.text || String(option));
+    return {
+      name: optionText,
+      votes: voteCounts[key] || 0
+    };
+  }) || [];
 
   const totalVotes = Object.values(voteCounts).reduce((sum, count) => sum + count, 0);
 
@@ -33,7 +39,7 @@ const PickAnswerResult = ({ slide, data }) => {
     <div className="space-y-6">
       <div className="bg-[#1F1F1F] rounded-xl border border-[#2A2A2A] p-6">
         <h3 className="text-xl font-semibold text-[#E0E0E0] mb-4">Question</h3>
-        <p className="text-[#E0E0E0] text-lg">{slide.question}</p>
+        <p className="text-[#E0E0E0] text-lg">{typeof slide.question === 'string' ? slide.question : (slide.question?.text || '')}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

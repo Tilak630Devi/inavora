@@ -11,7 +11,9 @@ const MCQResult = ({ slide, data }) => {
         <ResultCard slide={slide} totalResponses={totalVotes}>
             <div className="space-y-4">
                 {slide.options?.map((option, index) => {
-                    const count = voteCounts[option] || 0;
+                    const optionText = typeof option === 'string' ? option : (option?.text || `Option ${index + 1}`);
+                    const key = typeof option === 'string' ? option : (option?.text || String(option));
+                    const count = voteCounts[key] || 0;
                     const percentage = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
 
                     return (
@@ -28,7 +30,7 @@ const MCQResult = ({ slide, data }) => {
 
                                 {/* Content */}
                                 <div className="absolute inset-0 flex items-center justify-between px-6 progress-bar-content">
-                                    <span className="font-medium text-[#E0E0E0]">{option}</span>
+                                    <span className="font-medium text-[#E0E0E0]">{optionText}</span>
                                     <div className="flex items-center gap-3">
                                         <span className="text-sm text-[#B0B0B0]">{count} {t('slide_editors.mcq.votes')}</span>
                                         <span className="font-bold text-[#2196F3] w-12 text-right">{percentage}%</span>

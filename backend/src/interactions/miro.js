@@ -1,3 +1,5 @@
+const Logger = require('../utils/logger');
+
 const getResults = async (slideId, Slide, Response) => {
   try {
     const slide = await Slide.findById(slideId);
@@ -15,7 +17,7 @@ const getResults = async (slideId, Slide, Response) => {
       }
     };
   } catch (error) {
-    console.error('Error fetching Miro results:', error);
+    Logger.error('Error fetching Miro results', error);
     throw error;
   }
 };
@@ -49,7 +51,7 @@ const handleResponse = async (io, socket, data, Slide, Response) => {
     
     return { success: true };
   } catch (error) {
-    console.error('Error handling Miro response:', error);
+    Logger.error('Error handling Miro response', error);
     throw error;
   }
 };

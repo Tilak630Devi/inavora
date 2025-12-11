@@ -5,6 +5,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Landing from './components/pages/Landing';
 import Login from './components/Login';
 import Register from './components/Register';
+import ForgotPassword from './components/ForgotPassword';
+import VerifyOTP from './components/VerifyOTP';
+import ResetPassword from './components/ResetPassword';
 import Dashboard from './components/Dashboard';
 import Presentation from './components/pages/Presentation';
 import PresentMode from './components/pages/PresentMode';
@@ -77,6 +80,12 @@ function PageTitleUpdater() {
       title = t('page_titles.login');
     } else if (path === '/register') {
       title = t('page_titles.register');
+    } else if (path === '/forgot-password') {
+      title = t('page_titles.forgot_password');
+    } else if (path === '/verify-otp') {
+      title = t('page_titles.verify_otp');
+    } else if (path === '/reset-password') {
+      title = t('page_titles.reset_password');
     } else if (path === '/dashboard') {
       title = t('page_titles.dashboard');
     } else if (path.startsWith('/presentation/')) {
@@ -122,6 +131,9 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<PublicRoute> <Login /> </PublicRoute>} />
             <Route path="/register" element={<PublicRoute> <Register /> </PublicRoute>} />
+            <Route path="/forgot-password" element={<PublicRoute> <ForgotPassword /> </PublicRoute>} />
+            <Route path="/verify-otp" element={<PublicRoute> <VerifyOTP /> </PublicRoute>} />
+            <Route path="/reset-password" element={<PublicRoute> <ResetPassword /> </PublicRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute> <Dashboard /> </ProtectedRoute>} />
             <Route path="/presentation/:id" element={<ProtectedRoute> <Presentation /> </ProtectedRoute>} />
             <Route path="/present/:id" element={<ProtectedRoute> <PresentMode /> </ProtectedRoute>} />

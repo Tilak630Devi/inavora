@@ -3,32 +3,33 @@ const Slide = require('../models/Slide');
 const Response = require('../models/Response');
 const leaderboardService = require('../services/leaderboardService');
 const quizScoringService = require('../services/quizScoringService');
-const { createSlide, updateSlide, deleteSlide } = require('./slideController.js')
+const { createSlide, updateSlide, deleteSlide } = require('./slideController.js');
+const { AppError, asyncHandler } = require('../middleware/errorHandler');
+const Logger = require('../utils/logger');
 
 /**
  * Create a new presentation
+ * @route POST /api/presentations
+ * @access Private
+ * @param {string} req.body.title - Presentation title
+ * @returns {Object} Created presentation object
  */
-const createPresentation = async (req, res) => {
-  try {
-    const { title } = req.body;
-    const userId = req.userId;
+const createPresentation = asyncHandler(async (req, res, next) => {
+  const { title } = req.body;
+  const userId = req.userId;
 
-    // Validate input
-    if (!title || !title.trim()) {
-      return res.status(400).json({ error: 'Presentation title is required' });
-    }
+  if (!title || !title.trim()) {
+    throw new AppError('Presentation title is required', 400, 'VALIDATION_ERROR');
+  }
 
-    // Generate unique access code
-    let accessCode;
-    let isUnique = false;
+  let accessCode;
+  let isUnique = false;
 
-    while (!isUnique) {
-      accessCode = Presentation.generateAccessCode();
-      const existing = await Presentation.findOne({ accessCode });
-      if (!existing) isUnique = true;
-    }
-
-    // Create presentation
+  while (!isUnique) {
+    accessCode = Presentation.generateAccessCode();
+    const existing = await Presentation.findOne({ accessCode });
+    if (!existing) isUnique = true;
+  }
     const presentation = new Presentation({
       userId,
       title: title.trim(),
@@ -38,88 +39,93 @@ const createPresentation = async (req, res) => {
       showResults: true
     });
 
-    await presentation.save();
+  await presentation.save();
 
-    res.status(201).json({
-      message: 'Presentation created successfully',
-      presentation: {
-        id: presentation._id,
-        title: presentation.title,
-        accessCode: presentation.accessCode,
-        isLive: presentation.isLive,
-        currentSlideIndex: presentation.currentSlideIndex,
-        createdAt: presentation.createdAt,
-        updatedAt: presentation.updatedAt
-      }
-    });
-  } catch (error) {
-    console.error('Create presentation error:', error);
-    res.status(500).json({ error: 'Failed to create presentation' });
-  }
-};
+  res.status(201).json({
+    success: true,
+    message: 'Presentation created successfully',
+    presentation: {
+      id: presentation._id,
+      title: presentation.title,
+      accessCode: presentation.accessCode,
+      isLive: presentation.isLive,
+      currentSlideIndex: presentation.currentSlideIndex,
+      createdAt: presentation.createdAt,
+      updatedAt: presentation.updatedAt
+    }
+  });
+});
 
 /**
  * Get all presentations for the logged-in user
+ * @route GET /api/presentations
+ * @access Private
+ * @param {number} req.query.limit - Maximum number of presentations to return (default: 20)
+ * @param {number} req.query.skip - Number of presentations to skip (default: 0)
+ * @returns {Object} Array of presentations with slide counts
  */
-const getUserPresentations = async (req, res) => {
-  try {
-    const userId = req.userId;
-    const { limit = 20, skip = 0 } = req.query;
+const getUserPresentations = asyncHandler(async (req, res, next) => {
+  const userId = req.userId;
+  const { limit = 20, skip = 0 } = req.query;
 
-    const presentations = await Presentation.find({ userId })
+  const presentations = await Presentation.find({ userId })
       .sort({ updatedAt: -1 })
       .limit(parseInt(limit))
       .skip(parseInt(skip))
-      .select('-__v');
+      .select('-__v')
+      .lean();
 
-    // Get slide count for each presentation
-    const presentationsWithSlideCount = await Promise.all(
-      presentations.map(async (presentation) => {
-        const slideCount = await Slide.countDocuments({ presentationId: presentation._id });
-        return {
-          id: presentation._id,
-          title: presentation.title,
-          accessCode: presentation.accessCode,
-          isLive: presentation.isLive,
-          currentSlideIndex: presentation.currentSlideIndex,
-          showResults: presentation.showResults,
-          slideCount,
-          createdAt: presentation.createdAt,
-          updatedAt: presentation.updatedAt
-        };
-      })
-    );
+  const presentationIds = presentations.map(p => p._id);
+  const slideCounts = await Slide.aggregate([
+    { $match: { presentationId: { $in: presentationIds } } },
+    { $group: { _id: '$presentationId', count: { $sum: 1 } } }
+  ]);
+  
+  const slideCountMap = new Map(slideCounts.map(sc => [sc._id.toString(), sc.count]));
 
-    res.status(200).json({
-      presentations: presentationsWithSlideCount,
-      total: presentations.length
-    });
-  } catch (error) {
-    console.error('Get presentations error:', error);
-    res.status(500).json({ error: 'Failed to fetch presentations' });
-  }
-};
+  const presentationsWithSlideCount = presentations.map((presentation) => ({
+    id: presentation._id,
+    title: presentation.title,
+    accessCode: presentation.accessCode,
+    isLive: presentation.isLive,
+    currentSlideIndex: presentation.currentSlideIndex,
+    showResults: presentation.showResults,
+    slideCount: slideCountMap.get(presentation._id.toString()) || 0,
+    createdAt: presentation.createdAt,
+    updatedAt: presentation.updatedAt
+  }));
+
+  res.status(200).json({
+    success: true,
+    presentations: presentationsWithSlideCount,
+    total: presentations.length
+  });
+});
 
 /**
- * Get a single presentation by ID
+ * Get a single presentation by ID with all slides
+ * @route GET /api/presentations/:id
+ * @access Private
+ * @param {string} req.params.id - Presentation ID
+ * @returns {Object} Presentation object with slides array
  */
-const getPresentationById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.userId;
+const getPresentationById = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const userId = req.userId;
 
-    const presentation = await Presentation.findOne({ _id: id, userId });
+  const presentation = await Presentation.findOne({ _id: id, userId }).lean();
 
-    if (!presentation) {
-      return res.status(404).json({ error: 'Presentation not found' });
-    }
+  if (!presentation) {
+    throw new AppError('Presentation not found', 404, 'RESOURCE_NOT_FOUND');
+  }
 
-    // Get all slides for this presentation
-    const slides = await Slide.find({ presentationId: id })
+  const slides = await Slide.find({ presentationId: id })
       .sort({ order: 1 })
-      .select('-__v');
+      .select('-__v')
+      .lean();
 
-    res.status(200).json({
+  res.status(200).json({
+    success: true,
       presentation: {
         id: presentation._id,
         title: presentation.title,
@@ -164,34 +170,28 @@ const getPresentationById = async (req, res) => {
         createdAt: slide.createdAt,
         updatedAt: slide.updatedAt
       }))
-    });
-  } catch (error) {
-    console.error('Get presentation error:', error);
-    res.status(500).json({ error: 'Failed to fetch presentation' });
+  });
+});
+
+
+/**
+ * Get presentation results with aggregated data
+ * @route GET /api/presentations/:id/results
+ * @access Private
+ * @param {string} req.params.id - Presentation ID
+ * @returns {Object} Aggregated results for all slides
+ */
+const getPresentationResultById = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const userId = req.userId;
+
+  const presentation = await Presentation.findOne({ _id: id, userId });
+  if (!presentation) {
+    throw new AppError('Presentation not found', 404, 'RESOURCE_NOT_FOUND');
   }
-};
 
-
-const getPresentationResultById = async (req, res) => {
-  try {
-    console.log("req for result");
-    const { id } = req.params;
-    console.log(id);
-    const userId = req.userId;
-
-    // Verify presentation ownership
-    const presentation = await Presentation.findOne({ _id: id, userId });
-    if (!presentation) {
-      return res.status(404).json({ error: 'Presentation not found' });
-    }
-
-    // Get all slides
     const slides = await Slide.find({ presentationId: id }).sort({ order: 1 });
-
-    // Get all responses for this presentation
     const responses = await Response.find({ presentationId: id });
-
-    // Aggregate results by slide
     const results = {};
 
     for (const slide of slides) {
@@ -243,11 +243,8 @@ const getPresentationResultById = async (req, res) => {
               Object.entries(r.answer).forEach(([statementIndex, value]) => {
                 const idx = parseInt(statementIndex);
                 if (!isNaN(idx) && idx < scaleStatements.length) {
-                  // Track distribution
                   if (!scaleDistribution[idx]) scaleDistribution[idx] = {};
                   scaleDistribution[idx][value] = (scaleDistribution[idx][value] || 0) + 1;
-
-                  // Track sums for averages
                   statementSums[idx] += value;
                   statementCounts[idx]++;
                 }
@@ -280,8 +277,6 @@ const getPresentationResultById = async (req, res) => {
           slideResponses.forEach(r => {
             if (Array.isArray(r.answer)) {
               r.answer.forEach((itemId, index) => {
-                // Borda count method: higher rank (lower index) gets more points
-                // Points = (number of items - index)
                 const points = (slide.rankingItems?.length || 0) - index;
                 const item = rankingResults.find(i => i.id === itemId);
                 if (item) {
@@ -290,7 +285,6 @@ const getPresentationResultById = async (req, res) => {
               });
             }
           });
-          // Sort by score descending
           rankingResults.sort((a, b) => b.score - a.score);
           slideResult.rankingResults = rankingResults;
           break;
@@ -358,7 +352,6 @@ const getPresentationResultById = async (req, res) => {
           const guessDistribution = {};
           slideResponses.forEach(r => {
             let val = r.answer;
-            // Handle array input (take first element)
             if (Array.isArray(val) && val.length > 0) {
               val = val[0];
             }
@@ -368,11 +361,9 @@ const getPresentationResultById = async (req, res) => {
           break;
 
         case '2x2_grid':
-          // Aggregate grid positions
           const gridResults = [];
           slideResponses.forEach(r => {
             if (Array.isArray(r.answer)) {
-              // Multiple items per user: [{ item: 'uuid', x: 5, y: 5 }, ...]
               r.answer.forEach(item => {
                 gridResults.push({
                   participantName: r.participantName,
@@ -382,7 +373,6 @@ const getPresentationResultById = async (req, res) => {
                 });
               });
             } else if (r.answer && typeof r.answer === 'object') {
-              // Single item
               gridResults.push({
                 participantName: r.participantName,
                 x: r.answer.x,
@@ -446,7 +436,7 @@ const getPresentationResultById = async (req, res) => {
               slideResult.leaderboard = leaderboardData.finalLeaderboard;
             }
           } catch (err) {
-            console.error('Error building leaderboard for result:', err);
+            Logger.error('Error building leaderboard for result', err);
             slideResult.leaderboard = [];
           }
           break;
@@ -489,130 +479,122 @@ const getPresentationResultById = async (req, res) => {
       results[slide._id] = slideResult;
     }
 
-    res.status(200).json(results);
-
-  } catch (err) {
-    console.error('Get presentation result error:', err);
-    return res.status(500).json({ error: "Failed to fetch presentation result" });
-  }
-};
+    res.status(200).json({
+      success: true,
+      results
+    });
+});
 
 /**
  * Update presentation
+ * @route PUT /api/presentations/:id
+ * @access Private
+ * @param {string} req.params.id - Presentation ID
+ * @param {string} req.body.title - New title (optional)
+ * @param {boolean} req.body.showResults - Show results setting (optional)
+ * @returns {Object} Updated presentation object
  */
-const updatePresentation = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.userId;
-    const { title, showResults } = req.body;
+const updatePresentation = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const userId = req.userId;
+  const { title, showResults } = req.body;
 
-    const presentation = await Presentation.findOne({ _id: id, userId });
+  const presentation = await Presentation.findOne({ _id: id, userId });
 
-    if (!presentation) {
-      return res.status(404).json({ error: 'Presentation not found' });
-    }
-
-    // Update fields
-    if (title !== undefined) presentation.title = title.trim();
-    if (showResults !== undefined) presentation.showResults = showResults;
-
-    await presentation.save();
-
-    res.status(200).json({
-      message: 'Presentation updated successfully',
-      presentation: {
-        id: presentation._id,
-        title: presentation.title,
-        accessCode: presentation.accessCode,
-        isLive: presentation.isLive,
-        currentSlideIndex: presentation.currentSlideIndex,
-        showResults: presentation.showResults,
-        updatedAt: presentation.updatedAt
-      }
-    });
-  } catch (error) {
-    console.error('Update presentation error:', error);
-    res.status(500).json({ error: 'Failed to update presentation' });
+  if (!presentation) {
+    throw new AppError('Presentation not found', 404, 'RESOURCE_NOT_FOUND');
   }
-};
+
+  if (title !== undefined) presentation.title = title.trim();
+  if (showResults !== undefined) presentation.showResults = showResults;
+
+  await presentation.save();
+
+  res.status(200).json({
+    success: true,
+    message: 'Presentation updated successfully',
+    presentation: {
+      id: presentation._id,
+      title: presentation.title,
+      accessCode: presentation.accessCode,
+      isLive: presentation.isLive,
+      currentSlideIndex: presentation.currentSlideIndex,
+      showResults: presentation.showResults,
+      updatedAt: presentation.updatedAt
+    }
+  });
+});
 
 /**
- * Delete presentation
+ * Delete presentation and all related data
+ * @route DELETE /api/presentations/:id
+ * @access Private
+ * @param {string} req.params.id - Presentation ID
+ * @returns {Object} Success message
  */
-const deletePresentation = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.userId;
+const deletePresentation = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const userId = req.userId;
 
-    // Verify presentation ownership - only owner can delete
-    const presentation = await Presentation.findOne({ _id: id, userId });
+  const presentation = await Presentation.findOne({ _id: id, userId });
 
-    if (!presentation) {
-      return res.status(404).json({ error: 'Presentation not found or you do not have permission to delete it' });
-    }
-
-    // Cascading delete: Delete all related data
-    // 1. Delete all responses associated with this presentation
-    const Response = require('../models/Response');
-    await Response.deleteMany({ presentationId: id });
-
-    // 2. Delete all slides associated with this presentation
-    await Slide.deleteMany({ presentationId: id });
-
-    // 3. Delete the presentation itself
-    await Presentation.deleteOne({ _id: id });
-
-    res.status(200).json({ message: 'Presentation and all related data deleted successfully' });
-  } catch (error) {
-    console.error('Delete presentation error:', error);
-    res.status(500).json({ error: 'Failed to delete presentation' });
+  if (!presentation) {
+    throw new AppError('Presentation not found or you do not have permission to delete it', 404, 'RESOURCE_NOT_FOUND');
   }
-};
+
+  await Response.deleteMany({ presentationId: id });
+  await Slide.deleteMany({ presentationId: id });
+  await Presentation.deleteOne({ _id: id });
+
+  res.status(200).json({
+    success: true,
+    message: 'Presentation and all related data deleted successfully'
+  });
+});
 
 /**
  * Create leaderboard slide for a quiz
+ * @route POST /api/presentations/:presentationId/slides/:slideId/leaderboard
+ * @access Private
+ * @param {string} req.params.presentationId - Presentation ID
+ * @param {string} req.params.slideId - Quiz slide ID
+ * @returns {Object} Created leaderboard slide
  */
-const createLeaderboardForQuiz = async (req, res) => {
-  try {
-    const { presentationId, slideId } = req.params;
+const createLeaderboardForQuiz = asyncHandler(async (req, res, next) => {
+  const { presentationId, slideId } = req.params;
+  const userId = req.userId;
 
-    // Verify presentation ownership
-    const presentation = await Presentation.findOne({
-      _id: presentationId,
-      userId: req.user.id
-    });
+  const presentation = await Presentation.findOne({
+    _id: presentationId,
+    userId
+  });
 
-    if (!presentation) {
-      return res.status(404).json({ error: 'Presentation not found' });
-    }
-
-    // Verify quiz slide exists
-    const quizSlide = await Slide.findOne({
-      _id: slideId,
-      presentationId,
-      type: 'quiz'
-    });
-
-    if (!quizSlide) {
-      return res.status(404).json({ error: 'Quiz slide not found' });
-    }
-
-    // Create leaderboard
-    const leaderboard = await leaderboardService.createLeaderboardSlide({
-      presentationId,
-      quizSlideId: slideId,
-      quizSlideOrder: quizSlide.order
-    });
-
-    res.status(201).json({
-      message: 'Leaderboard created successfully',
-      leaderboard
-    });
-  } catch (error) {
-    console.error('Create leaderboard error:', error);
-    res.status(500).json({ error: 'Failed to create leaderboard' });
+  if (!presentation) {
+    throw new AppError('Presentation not found', 404, 'RESOURCE_NOT_FOUND');
   }
-};
+
+  const quizSlide = await Slide.findOne({
+    _id: slideId,
+    presentationId,
+    type: 'quiz'
+  });
+
+  if (!quizSlide) {
+    throw new AppError('Quiz slide not found', 404, 'RESOURCE_NOT_FOUND');
+  }
+
+  const leaderboard = await leaderboardService.createLeaderboardSlide({
+    presentationId,
+    quizSlideId: slideId,
+    quizSlideOrder: quizSlide.order
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Leaderboard created successfully',
+    leaderboard
+  });
+});
 
 /**
  * Get leaderboard for presentation
@@ -643,102 +625,107 @@ const buildLeaderboardSummary = async ({ presentationId, limit = 10 }) => {
   };
 };
 
-const getLeaderboard = async (req, res) => {
-  try {
-    const { presentationId } = req.params;
-    const limit = parseInt(req.query.limit) || 10;
+/**
+ * Get leaderboard for presentation
+ * @route GET /api/presentations/:presentationId/leaderboard
+ * @access Private
+ * @param {string} req.params.presentationId - Presentation ID
+ * @param {number} req.query.limit - Limit for leaderboard entries (default: 10)
+ * @returns {Object} Leaderboard data
+ */
+const getLeaderboard = asyncHandler(async (req, res, next) => {
+  const { presentationId } = req.params;
+  const userId = req.userId;
+  const limit = parseInt(req.query.limit) || 10;
 
-    // Verify presentation ownership
-    const presentation = await Presentation.findOne({
-      _id: presentationId,
-      userId: req.user.id
-    });
+  const presentation = await Presentation.findOne({
+    _id: presentationId,
+    userId
+  });
 
-    if (!presentation) {
-      return res.status(404).json({ error: 'Presentation not found' });
-    }
-
-    const { perQuizLeaderboards, finalLeaderboard } = await buildLeaderboardSummary({
-      presentationId,
-      limit,
-    });
-
-    res.status(200).json({
-      finalLeaderboard,
-      perQuizLeaderboards,
-    });
-  } catch (error) {
-    console.error('Get leaderboard error:', error);
-    res.status(500).json({ error: 'Failed to get leaderboard' });
+  if (!presentation) {
+    throw new AppError('Presentation not found', 404, 'RESOURCE_NOT_FOUND');
   }
-};
+
+  const { perQuizLeaderboards, finalLeaderboard } = await buildLeaderboardSummary({
+    presentationId,
+    limit,
+  });
+
+  res.status(200).json({
+    success: true,
+    finalLeaderboard,
+    perQuizLeaderboards,
+  });
+});
 
 /**
  * Generate leaderboard slides for all quizzes with responses
+ * @route POST /api/presentations/:presentationId/leaderboards/generate
+ * @access Private
+ * @param {string} req.params.presentationId - Presentation ID
+ * @returns {Object} Created leaderboard slides
  */
-const generateLeaderboards = async (req, res) => {
-  try {
-    const { presentationId } = req.params;
+const generateLeaderboards = asyncHandler(async (req, res, next) => {
+  const { presentationId } = req.params;
+  const userId = req.userId;
 
-    // Verify presentation ownership
-    const presentation = await Presentation.findOne({
-      _id: presentationId,
-      userId: req.user.id
-    });
+  const presentation = await Presentation.findOne({
+    _id: presentationId,
+    userId
+  });
 
-    if (!presentation) {
-      return res.status(404).json({ error: 'Presentation not found' });
-    }
-
-    const leaderboards = await leaderboardService.createLeaderboardsForPresentation(presentationId);
-
-    res.status(200).json({
-      message: `Created ${leaderboards.length} leaderboard slide(s)`,
-      leaderboards
-    });
-  } catch (error) {
-    console.error('Generate leaderboards error:', error);
-    res.status(500).json({ error: 'Failed to generate leaderboards' });
+  if (!presentation) {
+    throw new AppError('Presentation not found', 404, 'RESOURCE_NOT_FOUND');
   }
-};
+
+  const leaderboards = await leaderboardService.createLeaderboardsForPresentation(presentationId);
+
+  res.status(200).json({
+    success: true,
+    message: `Created ${leaderboards.length} leaderboard slide(s)`,
+    leaderboards
+  });
+});
 
 /**
  * Toggle QnA question status (answered/unanswered)
+ * @route PUT /api/presentations/:presentationId/questions/:questionId/status
+ * @access Private
+ * @param {string} req.params.presentationId - Presentation ID
+ * @param {string} req.params.questionId - Question/Response ID
+ * @param {boolean} req.body.isAnswered - Answered status
+ * @returns {Object} Updated question status
  */
-const toggleQnaStatus = async (req, res) => {
-  try {
-    const { presentationId, questionId } = req.params;
-    const { isAnswered } = req.body;
-    const userId = req.userId;
+const toggleQnaStatus = asyncHandler(async (req, res, next) => {
+  const { presentationId, questionId } = req.params;
+  const { isAnswered } = req.body;
+  const userId = req.userId;
 
-    // Verify presentation ownership
-    const presentation = await Presentation.findOne({ _id: presentationId, userId });
-    if (!presentation) {
-      return res.status(404).json({ error: 'Presentation not found' });
-    }
-
-    const response = await Response.findOneAndUpdate(
-      { _id: questionId, presentationId },
-      { $set: { isAnswered } },
-      { new: true }
-    );
-
-    if (!response) {
-      return res.status(404).json({ error: 'Question not found' });
-    }
-
-    res.status(200).json({
-      message: 'Status updated successfully',
-      question: {
-        id: response._id,
-        isAnswered: response.isAnswered
-      }
-    });
-  } catch (error) {
-    console.error('Toggle QnA status error:', error);
-    res.status(500).json({ error: 'Failed to update status' });
+  const presentation = await Presentation.findOne({ _id: presentationId, userId });
+  if (!presentation) {
+    throw new AppError('Presentation not found', 404, 'RESOURCE_NOT_FOUND');
   }
-};
+
+  const response = await Response.findOneAndUpdate(
+    { _id: questionId, presentationId },
+    { $set: { isAnswered } },
+    { new: true }
+  );
+
+  if (!response) {
+    throw new AppError('Question not found', 404, 'RESOURCE_NOT_FOUND');
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Status updated successfully',
+    question: {
+      id: response._id,
+      isAnswered: response.isAnswered
+    }
+  });
+});
 
 module.exports = {
   createPresentation,

@@ -3,6 +3,8 @@ const Presentation = require("../models/Presentation");
 const Slide = require("../models/Slide");
 const Response = require("../models/Response");
 const leaderboardService = require('../services/leaderboardService');
+const { AppError, asyncHandler } = require('../middleware/errorHandler');
+const Logger = require('../utils/logger');
 
 function sanitizeRankingItems(items) {
   if (!Array.isArray(items)) return null;
@@ -82,11 +84,12 @@ async function reorderSlides(presentationId) {
 
 /**
  * Create a new slide
+ * @route POST /api/presentations/:presentationId/slides
+ * @access Private
  */
-module.exports.createSlide = async (req, res) => {
-  try {
-    const { presentationId } = req.params;
-    const userId = req.userId;
+module.exports.createSlide = asyncHandler(async (req, res, next) => {
+  const { presentationId } = req.params;
+  const userId = req.userId;
     const {
       type,
       question,
@@ -123,63 +126,61 @@ module.exports.createSlide = async (req, res) => {
       order  // Accept order from frontend
     } = req.body;
 
-    const presentation = await Presentation.findOne({ _id: presentationId, userId });
+  const presentation = await Presentation.findOne({ _id: presentationId, userId });
 
-    if (!presentation) {
-      return res.status(404).json({ error: 'Presentation not found' });
+  if (!presentation) {
+    throw new AppError('Presentation not found', 404, 'RESOURCE_NOT_FOUND');
+  }
+
+  if (!type || (!question && type !== 'instruction')) {
+    throw new AppError('Slide type and question are required', 400, 'VALIDATION_ERROR');
+  }
+
+  if (type === 'instruction') {
+    const existingInstructionSlide = await Slide.findOne({ presentationId, type: 'instruction' });
+    if (existingInstructionSlide) {
+      throw new AppError('Only one instruction slide is allowed per presentation', 400, 'VALIDATION_ERROR');
     }
+  }
 
-    if (!type || (!question && type !== 'instruction')) {
-      return res.status(400).json({ error: 'Slide type and question are required' });
+  if (type === 'leaderboard') {
+    throw new AppError('Leaderboard slides are generated automatically for quizzes', 400, 'VALIDATION_ERROR');
+  }
+
+  let slideOrder;
+  if (typeof order === 'number' && order >= 0) {
+    slideOrder = order;
+  } else {
+    const lastSlide = await Slide.findOne({ presentationId }).sort({ order: -1 });
+    slideOrder = lastSlide ? lastSlide.order + 1 : 0;
+  }
+
+  let sanitizedRankingItems = null;
+  let sanitizedHundredPointsItems = null;
+  let sanitizedGridItems = null;
+
+  if (type === 'ranking') {
+    sanitizedRankingItems = sanitizeRankingItems(rankingItems);
+    if (!sanitizedRankingItems || sanitizedRankingItems.length === 0) {
+      throw new AppError('Ranking slides require at least one item with text', 400, 'VALIDATION_ERROR');
     }
+  }
 
-    // Prevent multiple instruction slides
-    if (type === 'instruction') {
-      const existingInstructionSlide = await Slide.findOne({ presentationId, type: 'instruction' });
-      if (existingInstructionSlide) {
-        return res.status(400).json({ error: 'Only one instruction slide is allowed per presentation' });
-      }
+  if (type === 'hundred_points') {
+    sanitizedHundredPointsItems = sanitizeHundredPointsItems(hundredPointsItems);
+    if (!sanitizedHundredPointsItems || sanitizedHundredPointsItems.length < 2) {
+      throw new AppError('100 Points slides require at least two items with text', 400, 'VALIDATION_ERROR');
     }
+  }
 
-    if (type === 'leaderboard') {
-      return res.status(400).json({ error: 'Leaderboard slides are generated automatically for quizzes' });
+  if (type === '2x2_grid') {
+    sanitizedGridItems = sanitizeHundredPointsItems(gridItems);
+    if (!sanitizedGridItems || sanitizedGridItems.length < 1) {
+      throw new AppError('2x2 Grid slides require at least one item with text', 400, 'VALIDATION_ERROR');
     }
+  }
 
-    // Use the order from the frontend if provided, otherwise assign based on last slide
-    let slideOrder;
-    if (typeof order === 'number' && order >= 0) {
-      slideOrder = order;
-    } else {
-      const lastSlide = await Slide.findOne({ presentationId }).sort({ order: -1 });
-      slideOrder = lastSlide ? lastSlide.order + 1 : 0;
-    }
-
-    let sanitizedRankingItems = null;
-    let sanitizedHundredPointsItems = null;
-    let sanitizedGridItems = null;
-
-    if (type === 'ranking') {
-      sanitizedRankingItems = sanitizeRankingItems(rankingItems);
-      if (!sanitizedRankingItems || sanitizedRankingItems.length === 0) {
-        return res.status(400).json({ error: 'Ranking slides require at least one item with text' });
-      }
-    }
-
-    if (type === 'hundred_points') {
-      sanitizedHundredPointsItems = sanitizeHundredPointsItems(hundredPointsItems);
-      if (!sanitizedHundredPointsItems || sanitizedHundredPointsItems.length < 2) {
-        return res.status(400).json({ error: '100 Points slides require at least two items with text' });
-      }
-    }
-
-    if (type === '2x2_grid') {
-      sanitizedGridItems = sanitizeHundredPointsItems(gridItems);
-      if (!sanitizedGridItems || sanitizedGridItems.length < 1) {
-        return res.status(400).json({ error: '2x2 Grid slides require at least one item with text' });
-      }
-    }
-
-    const slide = new Slide({
+  const slide = new Slide({
       presentationId,
       order: slideOrder,
       type,
@@ -216,35 +217,36 @@ module.exports.createSlide = async (req, res) => {
       uploadedFileUrl: type === 'upload' ? (uploadedFileUrl || '') : undefined,
       uploadedFilePublicId: type === 'upload' ? uploadedFilePublicId : undefined,
       uploadedFileName: type === 'upload' ? (uploadedFileName || '') : undefined,
+  });
+
+  await slide.save();
+
+  let leaderboardSlideResponse = null;
+  if (slide.type === 'quiz') {
+    const leaderboardSlide = await leaderboardService.createLeaderboardSlide({
+      presentationId,
+      quizSlideId: slide._id,
+      quizSlideOrder: slide.order
     });
 
-    await slide.save();
-
-    let leaderboardSlideResponse = null;
-    if (slide.type === 'quiz') {
-      const leaderboardSlide = await leaderboardService.createLeaderboardSlide({
-        presentationId,
-        quizSlideId: slide._id,
-        quizSlideOrder: slide.order
-      });
-
-      if (leaderboardSlide) {
-        await reorderSlides(presentationId);
-        leaderboardSlideResponse = {
-          id: leaderboardSlide._id,
-          order: leaderboardSlide.order,
-          type: leaderboardSlide.type,
-          question: leaderboardSlide.question,
-          leaderboardSettings: leaderboardSlide.leaderboardSettings,
-          createdAt: leaderboardSlide.createdAt,
-          updatedAt: leaderboardSlide.updatedAt
-        };
-      }
+    if (leaderboardSlide) {
+      await reorderSlides(presentationId);
+      leaderboardSlideResponse = {
+        id: leaderboardSlide._id,
+        order: leaderboardSlide.order,
+        type: leaderboardSlide.type,
+        question: leaderboardSlide.question,
+        leaderboardSettings: leaderboardSlide.leaderboardSettings,
+        createdAt: leaderboardSlide.createdAt,
+        updatedAt: leaderboardSlide.updatedAt
+      };
     }
+  }
 
-    const responsePayload = {
-      message: 'Slide created successfully',
-      slide: {
+  const responsePayload = {
+    success: true,
+    message: 'Slide created successfully',
+    slide: {
         id: slide._id,
         order: slide.order,
         type: slide.type,
@@ -285,24 +287,21 @@ module.exports.createSlide = async (req, res) => {
       }
     };
 
-    if (leaderboardSlideResponse) {
-      responsePayload.leaderboardSlide = leaderboardSlideResponse;
-    }
-
-    res.status(201).json(responsePayload);
-  } catch (error) {
-    console.error('Create slide error:', error);
-    res.status(500).json({ error: error.message || 'Failed to create slide' });
+  if (leaderboardSlideResponse) {
+    responsePayload.leaderboardSlide = leaderboardSlideResponse;
   }
-};
+
+  res.status(201).json(responsePayload);
+});
 
 /**
  * Update slide
+ * @route PUT /api/presentations/:presentationId/slides/:slideId
+ * @access Private
  */
-module.exports.updateSlide = async (req, res) => {
-  try {
-    const { presentationId, slideId } = req.params;
-    const userId = req.userId;
+module.exports.updateSlide = asyncHandler(async (req, res, next) => {
+  const { presentationId, slideId } = req.params;
+  const userId = req.userId;
     const {
       question,
       options,
@@ -338,20 +337,17 @@ module.exports.updateSlide = async (req, res) => {
       order  // Add order field
     } = req.body;
 
-    // Verify presentation ownership
-    const presentation = await Presentation.findOne({ _id: presentationId, userId });
+  const presentation = await Presentation.findOne({ _id: presentationId, userId });
 
-    if (!presentation) {
-      return res.status(404).json({ error: 'Presentation not found' });
-    }
+  if (!presentation) {
+    throw new AppError('Presentation not found', 404, 'RESOURCE_NOT_FOUND');
+  }
 
-    const slide = await Slide.findOne({ _id: slideId, presentationId });
+  const slide = await Slide.findOne({ _id: slideId, presentationId });
 
-    if (!slide) {
-      return res.status(404).json({ error: 'Slide not found' });
-    }
-
-    // Update fields
+  if (!slide) {
+    throw new AppError('Slide not found', 404, 'RESOURCE_NOT_FOUND');
+  }
     if (question !== undefined && slide.type !== 'instruction') slide.question = question.trim();
     if (options !== undefined && (slide.type === 'multiple_choice' || slide.type === 'pick_answer')) slide.options = options;
     if (minValue !== undefined && slide.type === 'scales') slide.minValue = minValue;
@@ -359,27 +355,27 @@ module.exports.updateSlide = async (req, res) => {
     if (minLabel !== undefined && slide.type === 'scales') slide.minLabel = minLabel;
     if (maxLabel !== undefined && slide.type === 'scales') slide.maxLabel = maxLabel;
     if (statements !== undefined && slide.type === 'scales') slide.statements = statements;
-    if (rankingItems !== undefined && slide.type === 'ranking') {
-      const sanitized = sanitizeRankingItems(rankingItems);
-      if (!sanitized || sanitized.length === 0) {
-        return res.status(400).json({ error: 'Ranking slides require at least one item with text' });
-      }
-      slide.rankingItems = sanitized;
+  if (rankingItems !== undefined && slide.type === 'ranking') {
+    const sanitized = sanitizeRankingItems(rankingItems);
+    if (!sanitized || sanitized.length === 0) {
+      throw new AppError('Ranking slides require at least one item with text', 400, 'VALIDATION_ERROR');
     }
-    if (hundredPointsItems !== undefined && slide.type === 'hundred_points') {
-      const sanitized = sanitizeHundredPointsItems(hundredPointsItems);
-      if (!sanitized || sanitized.length < 2) {
-        return res.status(400).json({ error: '100 Points slides require at least two items with text' });
-      }
-      slide.hundredPointsItems = sanitized;
+    slide.rankingItems = sanitized;
+  }
+  if (hundredPointsItems !== undefined && slide.type === 'hundred_points') {
+    const sanitized = sanitizeHundredPointsItems(hundredPointsItems);
+    if (!sanitized || sanitized.length < 2) {
+      throw new AppError('100 Points slides require at least two items with text', 400, 'VALIDATION_ERROR');
     }
-    if (gridItems !== undefined && slide.type === '2x2_grid') {
-      const sanitized = sanitizeHundredPointsItems(gridItems);
-      if (!sanitized || sanitized.length < 1) {
-        return res.status(400).json({ error: '2x2 Grid slides require at least one item with text' });
-      }
-      slide.gridItems = sanitized;
+    slide.hundredPointsItems = sanitized;
+  }
+  if (gridItems !== undefined && slide.type === '2x2_grid') {
+    const sanitized = sanitizeHundredPointsItems(gridItems);
+    if (!sanitized || sanitized.length < 1) {
+      throw new AppError('2x2 Grid slides require at least one item with text', 400, 'VALIDATION_ERROR');
     }
+    slide.gridItems = sanitized;
+  }
     if (gridAxisXLabel !== undefined && slide.type === '2x2_grid') {
       slide.gridAxisXLabel = gridAxisXLabel;
     }
@@ -486,34 +482,34 @@ module.exports.updateSlide = async (req, res) => {
     if (uploadedFileName !== undefined && slide.type === 'upload') {
       slide.uploadedFileName = uploadedFileName;
     }
-    // Update order field if provided
-    if (order !== undefined) {
-      slide.order = order;
-    }
+  if (order !== undefined) {
+    slide.order = order;
+  }
 
-    await slide.save();
+  await slide.save();
 
-    let updatedLeaderboard = null;
-    if (slide.type === 'quiz') {
-      updatedLeaderboard = await Slide.findOneAndUpdate(
-        {
-          presentationId,
-          type: 'leaderboard',
-          'leaderboardSettings.linkedQuizSlideId': slide._id
-        },
-        {
-          $set: {
-            question: 'Quiz Leaderboard',
-            updatedAt: new Date()
-          }
-        },
-        { new: true }
-      );
-    }
+  let updatedLeaderboard = null;
+  if (slide.type === 'quiz') {
+    updatedLeaderboard = await Slide.findOneAndUpdate(
+      {
+        presentationId,
+        type: 'leaderboard',
+        'leaderboardSettings.linkedQuizSlideId': slide._id
+      },
+      {
+        $set: {
+          question: 'Quiz Leaderboard',
+          updatedAt: new Date()
+        }
+      },
+      { new: true }
+    );
+  }
 
-    res.status(200).json({
-      message: 'Slide updated successfully',
-      slide: {
+  res.status(200).json({
+    success: true,
+    message: 'Slide updated successfully',
+    slide: {
         id: slide._id,
         order: slide.order,
         type: slide.type,
@@ -550,63 +546,52 @@ module.exports.updateSlide = async (req, res) => {
         uploadedFilePublicId: slide.uploadedFilePublicId,
         uploadedFileName: slide.uploadedFileName,
         createdAt: slide.createdAt,
-        updatedAt: slide.updatedAt
-      }
-    });
-  } catch (error) {
-    console.error('Update slide error:', error);
-    res.status(500).json({ error: error.message || 'Failed to update slide' });
-  }
-};
+      updatedAt: slide.updatedAt
+    }
+  });
+});
 
 /**
  * Delete slide
+ * @route DELETE /api/presentations/:presentationId/slides/:slideId
+ * @access Private
  */
-module.exports.deleteSlide = async (req, res) => {
-  try {
-    const { presentationId, slideId } = req.params;
-    const userId = req.userId;
+module.exports.deleteSlide = asyncHandler(async (req, res, next) => {
+  const { presentationId, slideId } = req.params;
+  const userId = req.userId;
 
-    // Verify presentation ownership
-    const presentation = await Presentation.findOne({ _id: presentationId, userId });
+  const presentation = await Presentation.findOne({ _id: presentationId, userId });
 
-    if (!presentation) {
-      return res.status(404).json({ error: 'Presentation not found' });
-    }
-
-    const slide = await Slide.findOne({ _id: slideId, presentationId });
-
-    if (!slide) {
-      return res.status(404).json({ error: 'Slide not found' });
-    }
-
-    if (slide.type === 'leaderboard' && slide.leaderboardSettings?.isAutoGenerated) {
-      return res.status(400).json({ error: 'Auto-generated leaderboard slides cannot be deleted directly' });
-    }
-
-    let deletedLeaderboard = null;
-    if (slide.type === 'quiz') {
-      deletedLeaderboard = await Slide.findOneAndDelete({
-        presentationId,
-        type: 'leaderboard',
-        'leaderboardSettings.linkedQuizSlideId': slide._id
-      });
-    }
-
-    // Delete associated responses
-    await Response.deleteMany({ slideId });
-
-    // Delete slide
-    await Slide.deleteOne({ _id: slideId });
-
-    await reorderSlides(presentationId);
-
-    res.status(200).json({
-      message: 'Slide deleted successfully',
-      deletedLeaderboardId: deletedLeaderboard ? deletedLeaderboard._id : null
-    });
-  } catch (error) {
-    console.error('Delete slide error:', error);
-    res.status(500).json({ error: 'Failed to delete slide' });
+  if (!presentation) {
+    throw new AppError('Presentation not found', 404, 'RESOURCE_NOT_FOUND');
   }
-};
+
+  const slide = await Slide.findOne({ _id: slideId, presentationId });
+
+  if (!slide) {
+    throw new AppError('Slide not found', 404, 'RESOURCE_NOT_FOUND');
+  }
+
+  if (slide.type === 'leaderboard' && slide.leaderboardSettings?.isAutoGenerated) {
+    throw new AppError('Auto-generated leaderboard slides cannot be deleted directly', 400, 'VALIDATION_ERROR');
+  }
+
+  let deletedLeaderboard = null;
+  if (slide.type === 'quiz') {
+    deletedLeaderboard = await Slide.findOneAndDelete({
+      presentationId,
+      type: 'leaderboard',
+      'leaderboardSettings.linkedQuizSlideId': slide._id
+    });
+  }
+
+  await Response.deleteMany({ slideId });
+  await Slide.deleteOne({ _id: slideId });
+  await reorderSlides(presentationId);
+
+  res.status(200).json({
+    success: true,
+    message: 'Slide deleted successfully',
+    deletedLeaderboardId: deletedLeaderboard ? deletedLeaderboard._id : null
+  });
+});

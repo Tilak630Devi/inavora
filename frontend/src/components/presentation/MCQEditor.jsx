@@ -8,7 +8,11 @@ const MCQEditor = ({ slide, onUpdate }) => {
   useEffect(() => {
     if (slide) {
       setQuestion(slide.question || '');
-      setOptions(slide.options || []);
+      // Normalize options: extract text if option is an object
+      const normalizedOptions = (slide.options || []).map(opt => 
+        typeof opt === 'string' ? opt : (opt?.text || '')
+      );
+      setOptions(normalizedOptions);
     }
   }, [slide]);
 

@@ -457,7 +457,7 @@ const PresentationResults = ({ slides, presentationId }) => {
             default:
                 return (
                     <div className="text-center text-[#B0B0B0] py-6 sm:py-8 bg-[#1F1F1F] rounded-xl border border-[#2A2A2A]">
-                        <p className="mb-2 font-medium text-[#E0E0E0] text-sm sm:text-base">{slide.question || 'Untitled Slide'}</p>
+                        <p className="mb-2 font-medium text-[#E0E0E0] text-sm sm:text-base">{typeof slide.question === 'string' ? slide.question : (slide.question?.text || 'Untitled Slide')}</p>
                         <p className="text-xs sm:text-sm text-[#6C6C6C]">Results visualization coming soon for {slide.type}.</p>
                     </div>
                 );
@@ -488,7 +488,7 @@ const PresentationResults = ({ slides, presentationId }) => {
                     {slides.map((slide, index) => (
                         <div key={slide.id || slide._id || index} className="w-full mb-6 sm:mb-8 pdf-slide">
                             <h3 className="text-xl font-semibold text-[#E0E0E0] mb-4 pdf-slide-title">
-                                Slide {index + 1}: {slide.question || slide.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                Slide {index + 1}: {typeof slide.question === 'string' ? slide.question : (slide.question?.text || slide.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()))}
                             </h3>
                             {renderSlideResult(slide)}
                         </div>

@@ -5,10 +5,11 @@ import { BookOpen } from 'lucide-react';
 import api from '../../config/api';
 import InstructionPresenterView from '../interactions/instruction/presenter/PresenterView';
 
-const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSettings, responses = [], isLive = false }) => {
+// eslint-disable-next-line no-unused-vars
+const SlideCanvas = ({ slide, presentation, isPresenter = false, onSettingsChange, onSaveSettings, responses = [], isLive = false }) => {
   const { t } = useTranslation();
   const { id: presentationId } = useParams();
-  const [question, setQuestion] = useState(slide?.question || 'Ask your question here...');
+  const [question, setQuestion] = useState(slide?.question || '');
   const [leaderboardSummary, setLeaderboardSummary] = useState(null);
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState(null);
@@ -158,31 +159,32 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
             <div className="rounded-3xl border border-[#2F2F2F] bg-[#1F1F1F] shadow-[0_12px_40px_rgba(0,0,0,0.45)]">
               <div className="border-b border-[#2A2A2A] px-4 sm:px-6 lg:px-10 pt-6 sm:pt-8 lg:pt-10 pb-4 sm:pb-6">
                 <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-[#E0E0E0] text-center">
-                  {slide?.question || 'Ask your question here...'}
+                  {slide?.question || t('slide_editors.mcq.question_placeholder')}
                 </h2>
               </div>
 
               <div className="px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10 space-y-3 sm:space-y-4">
                 {(!slide.options || slide.options.length === 0) ? (
                   <div className="rounded-xl border border-dashed border-[#3A3A3A] bg-[#232323] py-8 sm:py-12 text-center text-sm text-[#9E9E9E]">
-                    Add choices on the right to preview the poll.
+                    {t('slide_editors.pick_answer.preview_prompt')}
                   </div>
                 ) : (
                   slide.options.map((option, index) => {
                     const voteCount = 0;
                     const percentage = 0;
+                    const optionText = typeof option === 'string' ? option : (option?.text || `Option ${index + 1}`);
 
                     return (
                       <div key={index} className="relative overflow-hidden rounded-2xl border border-[#2F2F2F] bg-[#262626]">
                         <div className="absolute inset-0 bg-gradient-to-r from-[#2E7D32]/60 to-[#4CAF50]/40" style={{ width: `${percentage}%` }} />
                         <div className="relative flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
                           <div className="text-left">
-                            <p className="text-sm sm:text-base lg:text-lg font-semibold text-[#E0E0E0]">{option}</p>
-                            <p className="text-xs text-[#9E9E9E]">Responses will appear here</p>
+                            <p className="text-sm sm:text-base lg:text-lg font-semibold text-[#E0E0E0]">{optionText}</p>
+                            <p className="text-xs text-[#9E9E9E]">{t('slide_editors.pick_answer.responses_appear_here')}</p>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-lg sm:text-xl font-bold text-[#4CAF50]">{voteCount}</span>
-                            <span className="text-xs sm:text-sm text-[#9E9E9E]">votes</span>
+                            <span className="text-xs sm:text-sm text-[#9E9E9E]">{t('slide_editors.mcq.votes')}</span>
                           </div>
                         </div>
                       </div>
@@ -192,7 +194,7 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
               </div>
 
               <div className="border-t border-[#2A2A2A] px-4 sm:px-6 lg:px-10 py-4 sm:py-6 text-center text-xs sm:text-sm text-[#8A8A8A]">
-                Speaker note: Highlight responses as they come in.
+                {t('slide_editors.pick_answer.speaker_note')}
               </div>
             </div>
           </div>
@@ -209,18 +211,18 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
             <div className="rounded-2xl sm:rounded-3xl border border-[#2F2F2F] bg-[#111111] shadow-[0_12px_40px_rgba(0,0,0,0.55)]">
               <div className="border-b border-[#2A2A2A] px-4 sm:px-6 lg:px-10 pt-6 sm:pt-8 lg:pt-10 pb-4 sm:pb-6">
                 <div className="flex items-center justify-between text-xs text-[#7E7E7E] mb-3">
-                  <span className="uppercase tracking-[0.3em]">Quiz</span>
-                  <span className="text-[10px] sm:text-xs">Time limit: {slide?.quizSettings?.timeLimit ?? 30}s</span>
+                  <span className="uppercase tracking-[0.3em]">{t('slide_editors.quiz.quiz_label')}</span>
+                  <span className="text-[10px] sm:text-xs">{t('slide_editors.quiz.time_limit_label')}: {slide?.quizSettings?.timeLimit ?? 30}s</span>
                 </div>
                 <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-[#E0E0E0] text-center">
-                  {slide?.question || 'Add your quiz question to get started'}
+                  {slide?.question || t('slide_editors.quiz.default_title')}
                 </h2>
               </div>
 
               <div className="px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10 space-y-3 sm:space-y-4">
                 {quizOptions.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-[#3A3A3A] bg-[#181818] py-8 sm:py-12 text-center text-xs sm:text-sm text-[#9E9E9E] px-4">
-                    Add options in the editor to preview your quiz.
+                    {t('slide_editors.quiz.preview_prompt')}
                   </div>
                 ) : (
                   quizOptions.map((option, index) => {
@@ -249,7 +251,7 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
                           </div>
                           {isCorrect && (
                             <span className="text-xs sm:text-sm font-semibold text-[#4CAF50] flex-shrink-0 hidden sm:inline">
-                              Correct answer
+                              {t('slide_editors.quiz.correct_answer_label')}
                             </span>
                           )}
                         </div>
@@ -260,8 +262,7 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
               </div>
 
               <div className="border-t border-[#2A2A2A] px-4 sm:px-6 lg:px-10 py-4 sm:py-6 text-center text-[10px] sm:text-xs text-[#7E7E7E]">
-                Participants earn between <span className="text-[#4CAF50] font-semibold">500</span> and{' '}
-                <span className="text-[#4CAF50] font-semibold">1000</span> points based on how fast they answer.
+                {t('slide_editors.quiz.points_message')}
               </div>
             </div>
           </div>
@@ -273,7 +274,7 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
           <div className="w-full max-w-3xl mx-auto">
             <div className="rounded-2xl sm:rounded-3xl border border-[#2F2F2F] bg-[#1F1F1F] shadow-[0_12px_40px_rgba(0,0,0,0.45)] px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 text-center">
               <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-[#E0E0E0] mb-6 sm:mb-8 lg:mb-10">
-                {question || 'Ask your question here...'}
+                {question || t('slide_editors.pick_answer.default_title')}
               </h2>
               <div className="h-32 sm:h-48 lg:h-56 flex items-center justify-center rounded-xl sm:rounded-2xl border border-dashed border-[#3A3A3A] bg-[#252525]">
                 <p className="text-xs sm:text-sm text-[#9E9E9E] px-4">Word cloud responses will appear live during the session.</p>
@@ -287,7 +288,7 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
           <div className="w-full max-w-3xl mx-auto">
             <div className="rounded-2xl sm:rounded-3xl border border-[#2F2F2F] bg-[#1F1F1F] shadow-[0_12px_40px_rgba(0,0,0,0.45)] px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 text-center">
               <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-[#E0E0E0] mb-6 sm:mb-8 lg:mb-10">
-                {question || 'Ask your question here...'}
+                {question || t('slide_editors.pick_answer.default_title')}
               </h2>
               <div className="h-32 sm:h-48 lg:h-56 flex flex-col items-center justify-center gap-2 rounded-xl sm:rounded-2xl border border-dashed border-[#3A3A3A] bg-[#252525] px-4">
                 <p className="text-xs sm:text-sm text-[#9E9E9E]">Participants responses will start populating here.</p>
@@ -308,23 +309,25 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
               <div className="rounded-2xl sm:rounded-3xl border border-[#2F2F2F] bg-[#1F1F1F] shadow-[0_12px_40px_rgba(0,0,0,0.45)]">
                 <div className="border-b border-[#2A2A2A] px-4 sm:px-6 lg:px-10 pt-6 sm:pt-8 lg:pt-10 pb-4 sm:pb-6">
                   <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-[#E0E0E0] text-center">
-                    {question || 'Ask your question here...'}
+                    {question || t('slide_editors.pick_answer.default_title')}
                   </h2>
                 </div>
 
                 <div className="space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12">
                   {statements.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-[#3A3A3A] bg-[#252525] py-8 sm:py-12 text-center text-sm text-[#9E9E9E]">
-                      Add statements on the right to preview them.
+                      {t('slide_editors.scales.preview_prompt')}
                     </div>
                   ) : (
-                    statements.map((statement, index) => (
+                    statements.map((statement, index) => {
+                      const statementText = typeof statement === 'string' ? statement : (statement?.text || `Statement ${index + 1}`);
+                      return (
                       <div key={index} className="space-y-2 sm:space-y-3">
                         <div className="flex items-center gap-2 sm:gap-3">
                           <span className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-[#388E3C] text-xs font-semibold text-white flex-shrink-0">
                             {index + 1}
                           </span>
-                          <p className="text-sm sm:text-base lg:text-lg font-medium text-[#E0E0E0] break-words">{statement}</p>
+                          <p className="text-sm sm:text-base lg:text-lg font-medium text-[#E0E0E0] break-words">{statementText}</p>
                         </div>
                         <div className="flex items-center gap-2 sm:gap-4 text-xs text-[#9E9E9E]">
                           <span className="flex-shrink-0">{slide?.minLabel || `${slide?.minValue ?? 1}`}</span>
@@ -332,12 +335,13 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
                           <span className="flex-shrink-0">{slide?.maxLabel || `${slide?.maxValue ?? 5}`}</span>
                         </div>
                       </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
 
                 <div className="border-t border-[#2A2A2A] px-4 sm:px-6 lg:px-10 py-4 sm:py-6 text-center text-xs sm:text-sm text-[#8A8A8A]">
-                  Scale range: {slide?.minValue ?? 1} – {slide?.maxValue ?? 5}
+                  {t('slide_editors.scales.scale_range_label')}: {slide?.minValue ?? 1} – {slide?.maxValue ?? 5}
                 </div>
               </div>
             </div>
@@ -355,34 +359,37 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
               <div className="rounded-3xl border border-[#2F2F2F] bg-[#1F1F1F] shadow-[0_12px_40px_rgba(0,0,0,0.45)]">
                 <div className="border-b border-[#2A2A2A] px-4 sm:px-6 lg:px-10 pt-6 sm:pt-8 lg:pt-10 pb-4 sm:pb-6">
                   <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-[#E0E0E0] text-center">
-                    {question || 'Rank the following...'}
+                    {question || t('slide_editors.ranking.default_title')}
                   </h2>
                 </div>
 
                 <div className="px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10 space-y-3 sm:space-y-4">
                   {rankingItems.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-[#3A3A3A] bg-[#252525] py-8 sm:py-12 text-center text-sm text-[#9E9E9E]">
-                      Add items on the right to preview the ranking prompt.
+                      {t('slide_editors.ranking.preview_prompt')}
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {rankingItems.map((item, index) => (
+                      {rankingItems.map((item, index) => {
+                        const itemLabel = typeof item === 'string' ? item : (item?.label || `Item ${index + 1}`);
+                        return (
                         <div key={item.id || index} className="flex items-center gap-4 rounded-2xl border border-[#2F2F2F] bg-[#262626] px-4 sm:px-6 py-3 sm:py-4">
                           <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-[#388E3C] text-base sm:text-lg font-semibold text-white">
                             {index + 1}
                           </div>
                           <div className="flex-1">
-                            <p className="text-base sm:text-lg font-medium text-[#E0E0E0]">{item.label}</p>
-                            <p className="text-xs text-[#7E7E7E]">Drag handles will appear on participant view.</p>
+                            <p className="text-base sm:text-lg font-medium text-[#E0E0E0]">{itemLabel}</p>
+                            <p className="text-xs text-[#7E7E7E]">{t('slide_editors.ranking.drag_handles_message')}</p>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
 
                 <div className="border-t border-[#2A2A2A] px-4 sm:px-6 lg:px-10 py-4 sm:py-6 text-center text-xs sm:text-sm text-[#8A8A8A]">
-                  Participants will drag items to arrange their preferred order before submitting.
+                  {t('slide_editors.ranking.instruction')}
                 </div>
               </div>
             </div>
@@ -400,36 +407,39 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
               <div className="rounded-3xl border border-[#2F2F2F] bg-[#1F1F1F] shadow-[0_12px_40px_rgba(0,0,0,0.45)]">
                 <div className="border-b border-[#2A2A2A] px-4 sm:px-6 lg:px-10 pt-6 sm:pt-8 lg:pt-10 pb-4 sm:pb-6">
                   <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-[#E0E0E0] text-center">
-                    {question || 'Allocate 100 points to your favorite features...'}
+                    {question || t('slide_editors.hundred_points.default_title')}
                   </h2>
                 </div>
 
                 <div className="px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10 space-y-3 sm:space-y-4">
                   {hundredPointsItems.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-[#3A3A3A] bg-[#252525] py-8 sm:py-12 text-center text-sm text-[#9E9E9E]">
-                      Add items on the right to preview the 100 points allocation.
+                      {t('slide_editors.hundred_points.preview_prompt')}
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {hundredPointsItems.map((item, index) => (
+                      {hundredPointsItems.map((item, index) => {
+                        const itemLabel = typeof item === 'string' ? item : (item?.label || `Item ${index + 1}`);
+                        return (
                         <div key={item.id || index} className="flex items-center gap-4 rounded-2xl border border-[#2F2F2F] bg-[#262626] px-4 sm:px-6 py-3 sm:py-4">
                           <div className="flex-1">
-                            <p className="text-base sm:text-lg font-medium text-[#E0E0E0]">{item.label}</p>
+                            <p className="text-base sm:text-lg font-medium text-[#E0E0E0]">{itemLabel}</p>
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="flex h-8 w-12 sm:h-10 sm:w-16 items-center justify-center rounded-lg bg-[#2E7D32]/20 text-base sm:text-lg font-semibold text-[#4CAF50]">
                               0
                             </div>
-                            <span className="text-xs sm:text-sm text-[#9E9E9E]">pts</span>
+                            <span className="text-xs sm:text-sm text-[#9E9E9E]">{t('slide_editors.hundred_points.pts')}</span>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
 
                 <div className="border-t border-[#2A2A2A] px-4 sm:px-6 lg:px-10 py-4 sm:py-6 text-center text-xs sm:text-sm text-[#8A8A8A]">
-                  Participants will distribute 100 points among these options according to their preference.
+                  {t('slide_editors.hundred_points.instruction')}
                 </div>
               </div>
             </div>
@@ -439,16 +449,17 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
       case '2x2_grid':
         {
           const gridItems = Array.isArray(slide?.gridItems) 
-            ? slide.gridItems.filter(item => item && item.label) 
+            ? slide.gridItems.filter(item => item && (item.label || typeof item === 'string')) 
             : [];
-          const axisXLabel = slide?.gridAxisXLabel || 'Horizontal';
-          const axisYLabel = slide?.gridAxisYLabel || 'Vertical';
+
+          const axisXLabel = slide?.gridAxisXLabel || t('slide_editors.two_by_two_grid.horizontal_axis_default');
+          const axisYLabel = slide?.gridAxisYLabel || t('slide_editors.two_by_two_grid.vertical_axis_default');
 
           return (
             <div className="w-full max-w-4xl mx-auto">
               <div className="rounded-3xl border border-[#2F2F2F] bg-[#1F1F1F] shadow-[0_12px_40px_rgba(0,0,0,0.45)] p-4 sm:p-6 lg:p-8">
                 <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-[#E0E0E0] text-center mb-4 sm:mb-6">
-                  {question || 'How do you feel about this?'}
+                  {question || t('slide_editors.two_by_two_grid.default_title')}
                 </h2>
                 
                 <div className="flex gap-4 sm:gap-6 items-start">
@@ -493,6 +504,7 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
                                   { x: 85, y: 40 }
                                 ];
                                 const pos = positions[index % positions.length];
+                                const itemLabel = typeof item === 'string' ? item : (item?.label || `Item ${index + 1}`);
 
                                 return (
                                   <div
@@ -505,7 +517,7 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
                                       transform: 'translate(-50%, 50%)',
                                       animation: `pulse 2s ease-in-out ${index * 0.2}s infinite`
                                     }}
-                                    title={item.label}
+                                    title={itemLabel}
                                   />
                                 );
                               })}
@@ -523,15 +535,16 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
 
                   {/* Right: Items list */}
                   <div className="flex-1">
-                    <h3 className="text-xs font-semibold text-[#B0B0B0] mb-2">Items</h3>
+                    <h3 className="text-xs font-semibold text-[#B0B0B0] mb-2">{t('slide_editors.two_by_two_grid.items_label')}</h3>
                     <div className="space-y-2">
                       {gridItems.length === 0 ? (
                         <div className="text-center text-xs text-[#7E7E7E] py-3 sm:py-4 bg-[#232323] rounded-lg border border-dashed border-[#3A3A3A]">
-                          Add items on the right to preview
+                          {t('slide_editors.two_by_two_grid.preview_prompt')}
                         </div>
                       ) : (
                         gridItems.map((item, index) => {
                           const legendPalette = ['#FF8A65', '#4FC3F7', '#BA68C8', '#FFD54F', '#7986CB', '#CE93D8', '#4DB6AC', '#A1887F'];
+                          const itemLabel = typeof item === 'string' ? item : (item?.label || `Item ${index + 1}`);
 
                           return (
                             <div key={item.id || index} className="flex items-center gap-2 text-xs text-[#E0E0E0] bg-[#232323] rounded-lg px-3 py-2 border border-[#2F2F2F]">
@@ -541,7 +554,7 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
                                   backgroundColor: legendPalette[index % legendPalette.length]
                                 }}
                               />
-                              <span className="font-medium">{item.label}</span>
+                              <span className="font-medium">{itemLabel}</span>
                             </div>
                           );
                         })
@@ -558,10 +571,10 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
         return (
           <div className="w-full max-w-2xl mx-auto text-center">
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-normal text-[#E0E0E0] mb-8 sm:mb-12">
-              {question || 'What would you like to ask?'}
+              {question || t('slide_editors.qna.default_title')}
             </h2>
             <div className="h-32 sm:h-48 lg:h-64 flex items-center justify-center bg-[#232323] rounded-lg border border-dashed border-[#3A3A3A]">
-              <p className="text-[#9E9E9E]">Questions will appear here during the presentation</p>
+              <p className="text-[#9E9E9E]">{t('slide_editors.qna.questions_appear_message')}</p>
             </div>
           </div>
         );
@@ -575,14 +588,14 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
             <div className="w-full max-w-4xl mx-auto">
               <div className="rounded-3xl border border-[#2F2F2F] bg-[#1F1F1F] shadow-[0_12px_40px_rgba(0,0,0,0.45)] p-4 sm:p-6 lg:p-8">
                 <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-[#E0E0E0] text-center mb-4 sm:mb-6">
-                  {question || 'Where do you think this product will launch first?'}
+                  {question || t('slide_editors.pin_on_image.default_title')}
                 </h2>
                 
                 {imageUrl ? (
                   <div className="relative rounded-xl overflow-hidden border-2 border-[#2F2F2F] bg-[#232323]">
                     <img
                       src={imageUrl}
-                      alt="Pin placement preview"
+                      alt={t('slide_editors.pin_on_image.image_alt')}
                       className="w-full h-auto object-contain"
                       style={{ maxHeight: '60vh' }}
                     />
@@ -608,12 +621,12 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
                   </div>
                 ) : (
                   <div className="flex items-center justify-center py-12 sm:py-16 text-[#9E9E9E] bg-[#232323] rounded-xl border-2 border-dashed border-[#3A3A3A]">
-                    <p className="text-sm">Upload an image in the editor</p>
+                    <p className="text-sm">{t('slide_editors.pin_on_image.upload_message')}</p>
                   </div>
                 )}
 
                 <p className="text-xs sm:text-sm text-[#9E9E9E] text-center mt-3 sm:mt-4">
-                  {correctArea ? '✓ Correct area defined' : 'Single pin per participant'}
+                  {correctArea ? t('slide_editors.pin_on_image.correct_area_defined') : t('slide_editors.pin_on_image.single_pin_message')}
                 </p>
               </div>
             </div>
@@ -747,31 +760,32 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
             <div className="rounded-3xl border border-[#2F2F2F] bg-[#1F1F1F] shadow-[0_12px_40px_rgba(0,0,0,0.45)]">
               <div className="border-b border-[#2A2A2A] px-4 sm:px-6 lg:px-10 pt-6 sm:pt-8 lg:pt-10 pb-4 sm:pb-6">
                 <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-[#E0E0E0] text-center">
-                  {slide?.question || 'Ask your question here...'}
+                  {slide?.question || t('slide_editors.pick_answer.default_title')}
                 </h2>
               </div>
 
               <div className="px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10 space-y-3 sm:space-y-4">
                 {(!slide.options || slide.options.length === 0) ? (
                   <div className="rounded-xl border border-dashed border-[#3A3A3A] bg-[#232323] py-8 sm:py-12 text-center text-sm text-[#9E9E9E]">
-                    Add choices on the right to preview the poll.
+                    {t('slide_editors.pick_answer.preview_prompt')}
                   </div>
                 ) : (
                   slide.options.map((option, index) => {
                     const voteCount = 0;
                     const percentage = 0;
+                    const optionText = typeof option === 'string' ? option : (option?.text || `Option ${index + 1}`);
 
                     return (
                       <div key={index} className="relative overflow-hidden rounded-2xl border border-[#2F2F2F] bg-[#262626]">
                         <div className="absolute inset-0 bg-gradient-to-r from-[#2E7D32]/60 to-[#4CAF50]/40" style={{ width: `${percentage}%` }} />
                         <div className="relative flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
                           <div className="text-left">
-                            <p className="text-sm sm:text-base lg:text-lg font-semibold text-[#E0E0E0]">{option}</p>
-                            <p className="text-xs text-[#9E9E9E]">Responses will appear here</p>
+                            <p className="text-sm sm:text-base lg:text-lg font-semibold text-[#E0E0E0]">{optionText}</p>
+                            <p className="text-xs text-[#9E9E9E]">{t('slide_editors.pick_answer.responses_appear_here')}</p>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-lg sm:text-xl font-bold text-[#4CAF50]">{voteCount}</span>
-                            <span className="text-xs sm:text-sm text-[#9E9E9E]">votes</span>
+                            <span className="text-xs sm:text-sm text-[#9E9E9E]">{t('slide_editors.pick_answer.votes')}</span>
                           </div>
                         </div>
                       </div>
@@ -781,7 +795,7 @@ const SlideCanvas = ({ slide, isPresenter = false, onSettingsChange, onSaveSetti
               </div>
 
               <div className="border-t border-[#2A2A2A] px-4 sm:px-6 lg:px-10 py-4 sm:py-6 text-center text-xs sm:text-sm text-[#8A8A8A]">
-                Speaker note: Highlight responses as they come in.
+                {t('slide_editors.pick_answer.speaker_note')}
               </div>
             </div>
           </div>

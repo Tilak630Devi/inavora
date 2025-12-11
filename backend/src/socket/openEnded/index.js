@@ -1,5 +1,6 @@
 const Slide = require('../../models/Slide');
 const Response = require('../../models/Response');
+const Logger = require('../../utils/logger');
 
 async function handleOpenEndedSubmission({ existingResponse, presentationId, slideId, participantId, participantName, answer }) {
   if (existingResponse) {
@@ -66,7 +67,7 @@ function attachOpenEndedVotingHandlers({ io, socket, buildResultsPayload }) {
         openEndedSettings: slide.openEndedSettings
       });
     } catch (error) {
-      console.error('Set open-ended voting error:', error);
+      Logger.error('Set open-ended voting error', error);
       socket.emit('error', { message: 'Failed to update voting settings' });
     }
   });
@@ -122,7 +123,7 @@ function attachOpenEndedVotingHandlers({ io, socket, buildResultsPayload }) {
       io.to(`presentation-${presentationId}`).emit('response-updated', updatePayload);
       io.to(`presenter-${presentationId}`).emit('response-updated', updatePayload);
     } catch (error) {
-      console.error('Vote open-ended response error:', error);
+      Logger.error('Vote open-ended response error', error);
       socket.emit('error', { message: 'Failed to register vote' });
     }
   });
