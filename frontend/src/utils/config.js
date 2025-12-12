@@ -16,7 +16,7 @@ export const getApiUrl = () => {
 
   // In production, use the production API URL
   if (isProduction) {
-    return 'https://api.inavora.com';
+    return 'https://inavora-krvm.onrender.com';
   }
 
   // In development, use localhost
@@ -41,7 +41,7 @@ export const getSocketUrl = () => {
 
   // In production, use the production API URL
   if (isProduction) {
-    return 'https://api.inavora.com';
+    return 'https://inavora-krvm.onrender.com';
   }
 
   // In development, use localhost (default port 4000 for socket.io)

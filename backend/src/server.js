@@ -38,17 +38,67 @@ const { checkExpiredInstitutionSubscriptions } = require('./services/institution
 
 const app = express();
 const server = http.createServer(app);
+// Configure allowed origins for CORS
+const getAllowedOrigins = () => {
+    const origins = new Set();
+    
+    // Add FRONTEND_URL if set
+    if (process.env.FRONTEND_URL) {
+        origins.add(process.env.FRONTEND_URL);
+    }
+    
+    // In production, always allow both www and non-www versions
+    if (process.env.NODE_ENV === 'production') {
+        origins.add('https://www.inavora.com');
+        origins.add('https://inavora.com');
+    }
+    
+    // Default to localhost for development
+    if (origins.size === 0) {
+        origins.add('http://localhost:5173');
+    }
+    
+    return Array.from(origins);
+};
+
+const allowedOrigins = getAllowedOrigins();
+
 const io = new Server(server, {
     cors: {
-        origin: [`${process.env.FRONTEND_URL}`],
-        methods: ['GET', 'POST']
+        origin: allowedOrigins,
+        methods: ['GET', 'POST'],
+        credentials: true
     }
 });
 
 const PORT = process.env.PORT || 4001;
 
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        // Check if origin is in allowed list
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        
+        // In production, also explicitly check for both www and non-www versions
+        if (process.env.NODE_ENV === 'production') {
+            if (origin === 'https://www.inavora.com' || origin === 'https://inavora.com') {
+                return callback(null, true);
+            }
+        }
+        
+        // Default: allow localhost in development
+        if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
+            return callback(null, true);
+        }
+        
+        // Log rejected origin for debugging
+        console.warn('CORS: Origin not allowed:', origin);
+        callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
