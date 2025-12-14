@@ -1449,6 +1449,12 @@
     "users": "usuários",
     "custom_plan_base_price": "Base ₹{{base}}",
     "custom_plan_per_user": "{{count}} usuários × ₹{{price}}",
-    "custom_plan_price_breakdown": "({{baseText}} + {{userText}})"
+    "custom_plan_price_breakdown": "({{baseText}} + {{userText}})",
+    "feature_custom_branding": "Marca Personalizada",
+    "feature_advanced_analytics": "Análises Avançadas",
+    "feature_ai_features": "Recursos de IA",
+    "feature_api_access": "Acesso à API",
+    "feature_bulk_user_management": "Gerenciamento em Massa de Usuários",
+    "feature_detailed_export_results": "Resultados de Exportação Detalhados"
   }
 }

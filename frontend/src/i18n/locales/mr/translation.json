@@ -1435,6 +1435,12 @@
     "users": "वापरकर्ते",
     "custom_plan_base_price": "बेस ₹{{base}}",
     "custom_plan_per_user": "{{count}} वापरकर्ते × ₹{{price}}",
-    "custom_plan_price_breakdown": "({{baseText}} + {{userText}})"
+    "custom_plan_price_breakdown": "({{baseText}} + {{userText}})",
+    "feature_custom_branding": "सानुकूल ब्रँडिंग",
+    "feature_advanced_analytics": "प्रगत विश्लेषण",
+    "feature_ai_features": "AI वैशिष्ट्ये",
+    "feature_api_access": "API प्रवेश",
+    "feature_bulk_user_management": "बल्क वापरकर्ता व्यवस्थापन",
+    "feature_detailed_export_results": "तपशीलवार निर्यात परिणाम"
   }
 }

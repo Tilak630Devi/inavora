@@ -6,6 +6,7 @@ import * as presentationService from '../../services/presentationService';
 import { formatSlideDataForExport, exportAllSlidesToPDF } from '../../utils/exportUtils';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
+import { useAuth } from '../../context/AuthContext';
 
 // Import new Result Components
 import MCQResult from '../interactions/Results/MCQResult';
@@ -32,6 +33,7 @@ import ImageResult from '../interactions/Results/ImageResult';
 import VideoResult from '../interactions/Results/VideoResult';
 
 const PresentationResults = ({ slides, presentationId }) => {
+    const { currentUser } = useAuth();
     const [results, setResults] = useState(null);
     const [presentation, setPresentation] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +41,49 @@ const PresentationResults = ({ slides, presentationId }) => {
     const [isExporting, setIsExporting] = useState(false);
     const resultsRef = useRef(null);
     const socketRef = useRef(null);
+
+    // Check if user has access to export (Lifetime plan or Institution plan users)
+    const canExport = (() => {
+        // Check if user is an institution admin (has institutionAdminToken)
+        const hasInstitutionAdminToken = sessionStorage.getItem('institutionAdminToken') !== null;
+        
+        if (hasInstitutionAdminToken) {
+            console.log('Export Access Check: Institution Admin detected via token');
+            return true;
+        }
+        
+        if (!currentUser) {
+            console.log('Export Access Check: No currentUser found');
+            return false;
+        }
+        
+        const plan = currentUser?.subscription?.plan;
+        const isInstitutionUser = currentUser?.isInstitutionUser === true;
+        const hasInstitutionId = currentUser?.institutionId && currentUser?.institutionId !== null;
+        const hasInstitutionPlan = currentUser?.subscription?.institutionPlan?.institutionId || 
+                                   currentUser?.subscription?.institutionPlan?.inheritedFrom === 'institution';
+        
+        // Debug: Log user info to console
+        console.log('Export Access Check:', {
+            plan,
+            isInstitutionUser,
+            hasInstitutionId,
+            hasInstitutionPlan,
+            institutionId: currentUser?.institutionId,
+            institutionPlan: currentUser?.subscription?.institutionPlan,
+            fullUser: currentUser
+        });
+        
+        // Show export for:
+        // 1. Lifetime plan users
+        // 2. Institution plan users (plan === 'institution')
+        // 3. Users linked to institutions (isInstitutionUser, hasInstitutionId, or hasInstitutionPlan)
+        return plan === 'lifetime' || 
+               plan === 'institution' ||
+               isInstitutionUser ||
+               hasInstitutionId ||
+               hasInstitutionPlan;
+    })();
 
     // Fetch initial data
     useEffect(() => {
@@ -353,22 +398,76 @@ const PresentationResults = ({ slides, presentationId }) => {
                     const slideId = slide.id || slide._id;
                     if (!slideId) continue;
                     
-                    const response = await presentationService.getSlideResponses(presentationId, slideId);
+                    const slideType = slide.type;
+                    const isInstructionSlide = slideType === 'instruction';
                     
-                    if (response && response.success && response.slide && response.responses) {
+                    // For instruction slides, format directly from slide object without API call
+                    if (isInstructionSlide) {
+                        // Pass presentation access code in aggregatedData for instruction slides
+                        const instructionAggregatedData = {
+                            accessCode: presentation?.accessCode || ''
+                        };
                         const formattedData = formatSlideDataForExport(
-                            response.slide,
-                            response.responses,
-                            response.aggregatedData
+                            slide,
+                            [],
+                            instructionAggregatedData
                         );
                         allSlideData.push({
-                            slide: response.slide,
+                            slide: slide,
                             formattedData,
                             slideIndex: slides.indexOf(slide)
                         });
+                        continue;
+                    }
+                    
+                    // For other slides, fetch responses from API
+                    const response = await presentationService.getSlideResponses(presentationId, slideId);
+                    
+                    // Include slides even if they don't have responses (e.g., leaderboard slides)
+                    if (response && response.success && response.slide) {
+                        const responseSlideType = response.slide.type || slideType;
+                        const hasData = Array.isArray(response.responses) && response.responses.length > 0;
+                        const hasLeaderboardData = responseSlideType === 'leaderboard' && 
+                            response.aggregatedData && 
+                            Array.isArray(response.aggregatedData.leaderboard) && 
+                            response.aggregatedData.leaderboard.length > 0;
+                        
+                        // Include if it has responses or has leaderboard data
+                        if (hasData || hasLeaderboardData) {
+                            const formattedData = formatSlideDataForExport(
+                                response.slide,
+                                response.responses || [],
+                                response.aggregatedData || {}
+                            );
+                            allSlideData.push({
+                                slide: response.slide,
+                                formattedData,
+                                slideIndex: slides.indexOf(slide)
+                            });
+                        }
                     }
                 } catch (err) {
                     console.error(`Error fetching data for slide ${slide.id || slide._id}:`, err);
+                    // For instruction slides, still try to include them even if API fails
+                    if (slide.type === 'instruction') {
+                        try {
+                            const instructionAggregatedData = {
+                                accessCode: presentation?.accessCode || ''
+                            };
+                            const formattedData = formatSlideDataForExport(
+                                slide,
+                                [],
+                                instructionAggregatedData
+                            );
+                            allSlideData.push({
+                                slide: slide,
+                                formattedData,
+                                slideIndex: slides.indexOf(slide)
+                            });
+                        } catch (formatErr) {
+                            console.error(`Error formatting instruction slide:`, formatErr);
+                        }
+                    }
                     // Continue with other slides even if one fails
                 }
             }
@@ -502,40 +601,42 @@ const PresentationResults = ({ slides, presentationId }) => {
                             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#E0E0E0] mb-1 sm:mb-2">Presentation Results</h2>
                             <p className="text-sm sm:text-base text-[#B0B0B0]">Overview of all responses collected</p>
                         </div>
-                        <div className="flex gap-2">
-                            <div className="relative group">
-                                <button
-                                    disabled={isExporting}
-                                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-teal-500 hover:from-blue-600 hover:to-teal-600 text-white rounded-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-lg hover:shadow-xl"
-                                >
-                                    <Download className="w-4 h-4" />
-                                    {isExporting ? 'Exporting...' : 'Export'}
-                                </button>
-                                <div className="absolute right-0 top-full mt-1 w-48 bg-[#1e293b] border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                        {canExport && (
+                            <div className="flex gap-2">
+                                <div className="relative group">
                                     <button
-                                        onClick={handleExportToPDF}
                                         disabled={isExporting}
-                                        className="w-full text-left px-4 py-2 hover:bg-white/5 text-sm text-white disabled:opacity-50"
+                                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-teal-500 hover:from-blue-600 hover:to-teal-600 text-white rounded-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-lg hover:shadow-xl"
                                     >
-                                        Export as PDF
+                                        <Download className="w-4 h-4" />
+                                        {isExporting ? 'Exporting...' : 'Export'}
                                     </button>
-                                    <button
-                                        onClick={() => handleExportData('csv')}
-                                        disabled={isExporting}
-                                        className="w-full text-left px-4 py-2 hover:bg-white/5 text-sm text-white disabled:opacity-50"
-                                    >
-                                        Export as CSV
-                                    </button>
-                                    <button
-                                        onClick={() => handleExportData('excel')}
-                                        disabled={isExporting}
-                                        className="w-full text-left px-4 py-2 hover:bg-white/5 text-sm text-white disabled:opacity-50"
-                                    >
-                                        Export as Excel
-                                    </button>
+                                    <div className="absolute right-0 top-full mt-1 w-48 bg-[#1e293b] border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                                        <button
+                                            onClick={handleExportToPDF}
+                                            disabled={isExporting}
+                                            className="w-full text-left px-4 py-2 hover:bg-white/5 text-sm text-white disabled:opacity-50"
+                                        >
+                                            Export as PDF
+                                        </button>
+                                        <button
+                                            onClick={() => handleExportData('csv')}
+                                            disabled={isExporting}
+                                            className="w-full text-left px-4 py-2 hover:bg-white/5 text-sm text-white disabled:opacity-50"
+                                        >
+                                            Export as CSV
+                                        </button>
+                                        <button
+                                            onClick={() => handleExportData('excel')}
+                                            disabled={isExporting}
+                                            className="w-full text-left px-4 py-2 hover:bg-white/5 text-sm text-white disabled:opacity-50"
+                                        >
+                                            Export as Excel
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
 

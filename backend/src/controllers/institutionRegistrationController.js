@@ -40,14 +40,14 @@ const INSTITUTION_PLANS = {
     maxUsers: 10,
     price: { yearly: 548900 }, // ₹5489/yr in paise
     badge: 'Popular',
-    features: ['Advanced Analytics', '24/7 Support', 'Custom Branding', 'API Access', 'Custom Domain', 'Dedicated Manager']
+    features: ['Custom Branding', 'Advanced Analytics', 'AI Features', 'API Access', 'Bulk User Management', 'Detailed Export Results']
   },
   'professional': {
     name: 'Professional',
     maxUsers: 50,
     price: { yearly: 2544900 }, // ₹25449/yr in paise
     badge: 'High Demand',
-    features: ['Advanced Analytics', '24/7 Support', 'Custom Branding', 'API Access', 'Custom Domain', 'Dedicated Manager']
+    features: ['Custom Branding', 'Advanced Analytics', 'AI Features', 'API Access', 'Bulk User Management', 'Detailed Export Results']
   },
   'enterprise': {
     name: 'Custom',
@@ -55,8 +55,8 @@ const INSTITUTION_PLANS = {
     price: { yearly: 49900, perUser: 49900 }, // Base ₹499/yr + ₹499 per user (in paise)
     badge: 'Custom',
     isCustom: true,
-    minUsers: 11,
-    features: ['Advanced Analytics', '24/7 Support', 'Custom Branding', 'API Access', 'Custom Domain', 'Dedicated Manager']
+    minUsers: 10,
+    features: ['Custom Branding', 'Advanced Analytics', 'AI Features', 'API Access', 'Bulk User Management', 'Detailed Export Results']
   }
 };
 

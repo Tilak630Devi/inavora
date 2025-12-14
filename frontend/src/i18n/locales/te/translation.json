@@ -1123,7 +1123,13 @@
     "users": "వినియోగదారులు",
     "custom_plan_base_price": "బేస్ ₹{{base}}",
     "custom_plan_per_user": "{{count}} వినియోగదారులు × ₹{{price}}",
-    "custom_plan_price_breakdown": "({{baseText}} + {{userText}})"
+    "custom_plan_price_breakdown": "({{baseText}} + {{userText}})",
+    "feature_custom_branding": "కస్టమ్ బ్రాండింగ్",
+    "feature_advanced_analytics": "అధునాతన విశ్లేషణ",
+    "feature_ai_features": "AI లక్షణాలు",
+    "feature_api_access": "API ప్రాప్యత",
+    "feature_bulk_user_management": "బల్క్ వినియోగదారు నిర్వహణ",
+    "feature_detailed_export_results": "వివరణాత్మక ఎగుమతి ఫలితాలు"
   },
   "institution_admin": {
     "fetch_users_error": "వినియోగదారులను పొందడంలో విఫలమైంది",

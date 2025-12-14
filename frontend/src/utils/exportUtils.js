@@ -134,6 +134,12 @@ export const formatSlideDataForExport = (slide, responses, aggregatedData = {}) 
     case 'qna':
       return formatQnaData(slide, normalizedResponses, aggregatedData, question, timestamp);
     
+    case 'leaderboard':
+      return formatLeaderboardData(slide, normalizedResponses, aggregatedData, question, timestamp);
+    
+    case 'instruction':
+      return formatInstructionData(slide, normalizedResponses, aggregatedData, question, timestamp);
+    
     default:
       return formatGenericData(slide, normalizedResponses, question, timestamp);
   }
@@ -628,6 +634,66 @@ const formatQnaData = (slide, responses, aggregatedData, question, timestamp) =>
 };
 
 /**
+ * Format leaderboard data
+ */
+const formatLeaderboardData = (slide, responses, aggregatedData, question, timestamp) => {
+  const leaderboard = Array.isArray(aggregatedData?.leaderboard) ? aggregatedData.leaderboard : [];
+  const totalResponses = leaderboard.length;
+
+  const summaryRows = leaderboard.map((participant, index) => ({
+    'Rank': index + 1,
+    'Participant Name': formatParticipantName(participant.participantName),
+    'Participant ID': formatParticipantId(participant.participantId),
+    'Total Score': Math.round(participant.totalScore || participant.score || 0),
+    'Quizzes Played': participant.quizCount || 0
+  }));
+
+  return {
+    question: question || 'Quiz Leaderboard',
+    timestamp,
+    slideType: 'leaderboard',
+    summary: summaryRows,
+    detailed: [],
+    metadata: {
+      totalResponses
+    }
+  };
+};
+
+/**
+ * Format instruction slide data
+ */
+const formatInstructionData = (slide, responses, aggregatedData, question, timestamp) => {
+  // Instruction slides may have content object or instructionContent string
+  const content = slide?.content || {};
+  const instructionContent = slide?.instructionContent || '';
+  const website = content.website || 'www.inavora.com';
+  const description = content.description || instructionContent || 'Join via website or scan QR code';
+  const accessCode = aggregatedData?.accessCode || '';
+
+  const summaryRows = [
+    {
+      'Type': 'Instruction Slide',
+      'Content': 'Join Instructions',
+      'Website': website,
+      'Description': description,
+      'Join Presentation Code': accessCode || 'N/A'
+    }
+  ];
+
+  return {
+    question: question || 'Instructions',
+    timestamp,
+    slideType: 'instruction',
+    summary: summaryRows,
+    detailed: [],
+    metadata: {
+      totalResponses: 0
+    }
+  };
+};
+
+/**
  * Format generic data
  */
 const formatGenericData = (slide, responses, question, timestamp) => {
@@ -937,7 +1003,10 @@ export const exportToPDF = (formattedData, presentationTitle, filename, slide = 
       // Check all rows for this column to find longest content
       rows.forEach(row => {
         const cellText = String(row[header] || '');
-        const formattedText = formatLongId(cellText);
+        // Only truncate IDs, not regular text
+        const isId = header.toLowerCase().includes('id') || 
+                     (cellText.includes('-') && cellText.length > 20);
+        const formattedText = isId ? formatLongId(cellText) : cellText;
         maxCharCount = Math.max(maxCharCount, formattedText.length);
       });
       
@@ -945,7 +1014,7 @@ export const exportToPDF = (formattedData, presentationTitle, filename, slide = 
       // Adjust based on column type
       const lowerHeader = header.toLowerCase();
       let charWidth = 0.5;
-      if (lowerHeader.includes('participant id') || lowerHeader.includes('selected option') || lowerHeader.includes('option')) {
+      if (lowerHeader.includes('participant id') || (lowerHeader.includes('option') && lowerHeader.includes('selected'))) {
         charWidth = 0.4; // Smaller for UUIDs
       } else if (lowerHeader.includes('name')) {
         charWidth = 0.45;
@@ -983,7 +1052,10 @@ export const exportToPDF = (formattedData, presentationTitle, filename, slide = 
     pdf.setFontSize(fontSize);
     headers.forEach((header, colIndex) => {
       const cellText = String(row[header] || '');
-      const formattedText = formatLongId(cellText);
+      // Only truncate IDs, not regular text
+      const isId = header.toLowerCase().includes('id') || 
+                   (cellText.includes('-') && cellText.length > 20);
+      const formattedText = isId ? formatLongId(cellText) : cellText;
       const textLines = pdf.splitTextToSize(formattedText, Math.max(5, colWidths[colIndex] - 4));
       maxLines = Math.max(maxLines, textLines.length);
     });
@@ -1056,7 +1128,10 @@ export const exportToPDF = (formattedData, presentationTitle, filename, slide = 
       xPos = margin;
       headers.forEach((header, colIndex) => {
         const cellText = String(row[header] || '');
-        const formattedText = formatLongId(cellText);
+        // Only truncate IDs, not regular text
+        const isId = header.toLowerCase().includes('id') || 
+                     (cellText.includes('-') && cellText.length > 20);
+        const formattedText = isId ? formatLongId(cellText) : cellText;
         const cellWidth = Math.max(5, colWidths[colIndex] - 4);
         const textLines = pdf.splitTextToSize(formattedText, cellWidth);
         const cellHeight = textLines.length * lineHeight;
@@ -1139,7 +1214,10 @@ export const exportToPDF = (formattedData, presentationTitle, filename, slide = 
       xPos = margin;
       headers.forEach((header, colIndex) => {
         const cellText = String(row[header] || '');
-        const formattedText = formatLongId(cellText);
+        // Only truncate IDs, not regular text
+        const isId = header.toLowerCase().includes('id') || 
+                     (cellText.includes('-') && cellText.length > 20);
+        const formattedText = isId ? formatLongId(cellText) : cellText;
         const cellWidth = Math.max(5, colWidths[colIndex] - 4);
         const textLines = pdf.splitTextToSize(formattedText, cellWidth);
         const cellHeight = textLines.length * lineHeight;
@@ -1547,12 +1625,56 @@ const renderSlideToPDF = (pdf, formattedData, slide, slideNumber, presentationTi
     pdf.setFontSize(14);
     pdf.setTextColor(33, 150, 243);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Summary', margin, yPosition);
+    // Use appropriate title based on slide type
+    const sectionTitle = slideType === 'leaderboard' ? 'LEADERBOARD' : 
+                         slideType === 'instruction' ? 'INSTRUCTIONS' : 
+                         'Summary';
+    pdf.text(sectionTitle, margin, yPosition);
     yPosition += 10;
     
     const headers = Object.keys(summary[0]);
     if (headers.length === 0) return yPosition;
-    const colWidths = headers.map(() => contentWidth / headers.length);
+    
+    // Calculate optimal column widths based on content (similar to single-slide export)
+    pdf.setFontSize(8);
+    const colWidths = headers.map(() => 0);
+    
+    // Calculate width needed for each column based on header and content
+    headers.forEach((header, colIndex) => {
+      let maxCharCount = header.length;
+      
+      // Check all rows for this column to find longest content
+      summary.forEach(row => {
+        const cellText = String(row[header] || '');
+        // Only truncate IDs, not regular text
+        const isId = header.toLowerCase().includes('id') || 
+                     (cellText.includes('-') && cellText.length > 20);
+        const displayText = isId ? formatLongId(cellText) : cellText;
+        maxCharCount = Math.max(maxCharCount, displayText.length);
+      });
+      
+      // Estimate width: approximately 0.5mm per character for font size 8
+      const charWidth = 0.5;
+      const estimatedWidth = maxCharCount * charWidth;
+      // Add padding (4mm on each side = 8mm total)
+      colWidths[colIndex] = Math.max(20, Math.min(60, estimatedWidth + 8));
+    });
+    
+    // Normalize to fit contentWidth
+    const totalWidth = colWidths.reduce((sum, w) => sum + w, 0);
+    if (totalWidth > contentWidth) {
+      const scaleFactor = contentWidth / totalWidth;
+      colWidths.forEach((w, i) => colWidths[i] = w * scaleFactor);
+    } else {
+      // Distribute extra space proportionally
+      const extraSpace = contentWidth - totalWidth;
+      const totalOriginal = colWidths.reduce((sum, w) => sum + w, 0);
+      if (totalOriginal > 0) {
+        colWidths.forEach((w, i) => {
+          colWidths[i] = w + (extraSpace * (w / totalOriginal));
+        });
+      }
+    }
     
     // Table header
     const headerHeight = 10;
@@ -1576,9 +1698,22 @@ const renderSlideToPDF = (pdf, formattedData, slide, slideNumber, presentationTi
     pdf.setTextColor(33, 33, 33);
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(8);
+    const lineHeight = 4.5;
     
     summary.forEach((row, rowIndex) => {
-      const rowHeight = 8;
+      // Calculate row height based on content
+      let maxLines = 1;
+      headers.forEach((header, colIndex) => {
+        const cellText = String(row[header] || '');
+        const isId = header.toLowerCase().includes('id') || 
+                     (cellText.includes('-') && cellText.length > 20);
+        const displayText = isId ? formatLongId(cellText) : cellText;
+        const cellWidth = Math.max(5, colWidths[colIndex] - 4);
+        const textLines = pdf.splitTextToSize(displayText, cellWidth);
+        maxLines = Math.max(maxLines, textLines.length);
+      });
+      const rowHeight = Math.max(8, maxLines * lineHeight + 3);
+      
       checkNewPage(rowHeight);
       
       if (rowIndex % 2 === 0) {
@@ -1591,13 +1726,25 @@ const renderSlideToPDF = (pdf, formattedData, slide, slideNumber, presentationTi
       pdf.setDrawColor(224, 224, 224);
       pdf.rect(margin, yPosition, contentWidth, rowHeight, 'D');
       
+      // Draw vertical lines between columns
+      xPos = margin;
+      for (let i = 0; i < colWidths.length - 1; i++) {
+        xPos += colWidths[i];
+        pdf.setDrawColor(224, 224, 224);
+        pdf.line(xPos, yPosition, xPos, yPosition + rowHeight);
+      }
+      
       xPos = margin;
       headers.forEach((header, colIndex) => {
         const cellText = String(row[header] || '');
-        const formattedText = formatLongId(cellText);
+        const isId = header.toLowerCase().includes('id') || 
+                     (cellText.includes('-') && cellText.length > 20);
+        const displayText = isId ? formatLongId(cellText) : cellText;
         const cellWidth = Math.max(5, colWidths[colIndex] - 4);
-        const textLines = pdf.splitTextToSize(formattedText, cellWidth);
-        pdf.text(textLines, xPos + 2, yPosition + 5);
+        const textLines = pdf.splitTextToSize(displayText, cellWidth);
+        const cellHeight = textLines.length * lineHeight;
+        const textY = yPosition + (rowHeight / 2) - (cellHeight / 2) + lineHeight;
+        pdf.text(textLines, xPos + 2, textY, { maxWidth: cellWidth });
         xPos += colWidths[colIndex];
       });
       
@@ -1619,7 +1766,47 @@ const renderSlideToPDF = (pdf, formattedData, slide, slideNumber, presentationTi
     
     const headers = Object.keys(detailed[0]);
     if (headers.length === 0) return yPosition;
-    const colWidths = headers.map(() => contentWidth / headers.length);
+    
+    // Calculate optimal column widths based on content
+    pdf.setFontSize(7);
+    const colWidths = headers.map(() => 0);
+    
+    // Calculate width needed for each column based on header and content
+    headers.forEach((header, colIndex) => {
+      let maxCharCount = header.length;
+      
+      // Check all rows for this column to find longest content
+      detailed.forEach(row => {
+        const cellText = String(row[header] || '');
+        // Only truncate IDs, not regular text
+        const isId = header.toLowerCase().includes('id') || 
+                     (cellText.includes('-') && cellText.length > 20);
+        const displayText = isId ? formatLongId(cellText) : cellText;
+        maxCharCount = Math.max(maxCharCount, displayText.length);
+      });
+      
+      // Estimate width: approximately 0.4mm per character for font size 7
+      const charWidth = 0.4;
+      const estimatedWidth = maxCharCount * charWidth;
+      // Add padding (4mm on each side = 8mm total)
+      colWidths[colIndex] = Math.max(12, Math.min(40, estimatedWidth + 8));
+    });
+    
+    // Normalize to fit contentWidth
+    const totalWidth = colWidths.reduce((sum, w) => sum + w, 0);
+    if (totalWidth > contentWidth) {
+      const scaleFactor = contentWidth / totalWidth;
+      colWidths.forEach((w, i) => colWidths[i] = w * scaleFactor);
+    } else {
+      // Distribute extra space proportionally
+      const extraSpace = contentWidth - totalWidth;
+      const totalOriginal = colWidths.reduce((sum, w) => sum + w, 0);
+      if (totalOriginal > 0) {
+        colWidths.forEach((w, i) => {
+          colWidths[i] = w + (extraSpace * (w / totalOriginal));
+        });
+      }
+    }
     
     const headerHeight = 10;
     pdf.setFillColor(33, 150, 243);
@@ -1642,9 +1829,22 @@ const renderSlideToPDF = (pdf, formattedData, slide, slideNumber, presentationTi
     pdf.setTextColor(33, 33, 33);
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(7);
+    const lineHeight = 4;
     
     detailed.forEach((row, rowIndex) => {
-      const rowHeight = 8;
+      // Calculate row height based on content
+      let maxLines = 1;
+      headers.forEach((header, colIndex) => {
+        const cellText = String(row[header] || '');
+        const isId = header.toLowerCase().includes('id') || 
+                     (cellText.includes('-') && cellText.length > 20);
+        const displayText = isId ? formatLongId(cellText) : cellText;
+        const cellWidth = Math.max(5, colWidths[colIndex] - 4);
+        const textLines = pdf.splitTextToSize(displayText, cellWidth);
+        maxLines = Math.max(maxLines, textLines.length);
+      });
+      const rowHeight = Math.max(8, maxLines * lineHeight + 3);
+      
       checkNewPage(rowHeight);
       
       if (rowIndex % 2 === 0) {
@@ -1657,13 +1857,25 @@ const renderSlideToPDF = (pdf, formattedData, slide, slideNumber, presentationTi
       pdf.setDrawColor(224, 224, 224);
       pdf.rect(margin, yPosition, contentWidth, rowHeight, 'D');
       
+      // Draw vertical lines between columns
+      xPos = margin;
+      for (let i = 0; i < colWidths.length - 1; i++) {
+        xPos += colWidths[i];
+        pdf.setDrawColor(224, 224, 224);
+        pdf.line(xPos, yPosition, xPos, yPosition + rowHeight);
+      }
+      
       xPos = margin;
       headers.forEach((header, colIndex) => {
         const cellText = String(row[header] || '');
-        const formattedText = formatLongId(cellText);
+        const isId = header.toLowerCase().includes('id') || 
+                     (cellText.includes('-') && cellText.length > 20);
+        const displayText = isId ? formatLongId(cellText) : cellText;
         const cellWidth = Math.max(5, colWidths[colIndex] - 4);
-        const textLines = pdf.splitTextToSize(formattedText, cellWidth);
-        pdf.text(textLines, xPos + 2, yPosition + 5);
+        const textLines = pdf.splitTextToSize(displayText, cellWidth);
+        const cellHeight = textLines.length * lineHeight;
+        const textY = yPosition + (rowHeight / 2) - (cellHeight / 2) + lineHeight;
+        pdf.text(textLines, xPos + 2, textY, { maxWidth: cellWidth });
         xPos += colWidths[colIndex];
       });
       

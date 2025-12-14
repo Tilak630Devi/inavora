@@ -1171,6 +1171,30 @@ const getSlideResponses = asyncHandler(async (req, res, next) => {
     }
   }
 
+  // For leaderboard slides, fetch leaderboard data
+  if (slide.type === 'leaderboard') {
+    try {
+      const leaderboardData = await buildLeaderboardSummary({
+        presentationId,
+        limit: slide.leaderboardSettings?.displayCount || 10
+      });
+
+      // If it's a linked leaderboard, filter for that
+      if (slide.leaderboardSettings?.linkedQuizSlideId) {
+        const linkedId = slide.leaderboardSettings.linkedQuizSlideId.toString();
+        const specificBoard = leaderboardData.perQuizLeaderboards.find(b => b.quizSlideId === linkedId);
+        aggregatedData.leaderboard = specificBoard ? specificBoard.leaderboard : [];
+      } else {
+        aggregatedData.leaderboard = leaderboardData.finalLeaderboard || [];
+      }
+      aggregatedData.totalResponses = aggregatedData.leaderboard.length;
+    } catch (err) {
+      Logger.error('Error building leaderboard for export', err);
+      aggregatedData.leaderboard = [];
+      aggregatedData.totalResponses = 0;
+    }
+  }
+
   res.status(200).json({
     success: true,
     slide: {
@@ -1187,6 +1211,7 @@ const getSlideResponses = asyncHandler(async (req, res, next) => {
       qnaSettings: slide.qnaSettings,
       openEndedSettings: slide.openEndedSettings,
       pinOnImageSettings: slide.pinOnImageSettings,
+      leaderboardSettings: slide.leaderboardSettings,
       minValue: slide.minValue,
       maxValue: slide.maxValue,
       minLabel: slide.minLabel,
@@ -1194,7 +1219,9 @@ const getSlideResponses = asyncHandler(async (req, res, next) => {
       gridAxisXLabel: slide.gridAxisXLabel,
       gridAxisYLabel: slide.gridAxisYLabel,
       gridAxisRange: slide.gridAxisRange,
-      maxWordsPerParticipant: slide.maxWordsPerParticipant
+      maxWordsPerParticipant: slide.maxWordsPerParticipant,
+      instructionContent: slide.instructionContent,
+      content: slide.content
     },
     responses: responses.map(r => ({
       id: r._id,

@@ -22,7 +22,7 @@ const InstitutionRegister = () => {
   const [registrationToken, setRegistrationToken] = useState(null);
   const [plans, setPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [customUserCount, setCustomUserCount] = useState(11); // Minimum 11 users
+  const [customUserCount, setCustomUserCount] = useState(10); // Minimum 10 users
   const [customUserCountError, setCustomUserCountError] = useState('');
   const billingCycle = 'yearly'; // Only yearly plans available
   const [showPassword, setShowPassword] = useState(false);
@@ -245,7 +245,7 @@ const InstitutionRegister = () => {
     // Validate custom plan user count
     const selectedPlanData = plans.find(p => p.id === selectedPlan);
     if (selectedPlanData?.isCustom) {
-      const minUsers = selectedPlanData.minUsers || 11;
+      const minUsers = selectedPlanData.minUsers || 10;
       if (!customUserCount || customUserCount < minUsers) {
         setCustomUserCountError(t('institution_register.custom_plan_min_users_error', { count: minUsers }));
         toast.error(t('institution_register.custom_plan_min_users_error', { count: minUsers }));
@@ -849,7 +849,7 @@ const InstitutionRegister = () => {
             }`}
           >
             {plan.badge && (
-              <div className="absolute -top-3 right-4 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+              <div className="absolute -top-3 right-4 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">
                 {plan.badge}
               </div>
             )}
@@ -860,38 +860,38 @@ const InstitutionRegister = () => {
             </div>
             {plan.isCustom ? (
               <>
-                <div className="mb-4">
-                  <div className="flex items-baseline gap-1 mb-2">
-                    <span className="text-3xl font-bold">
-                      ₹{plan.prices.yearly / 100}/yr
+                <div className="mb-4 min-w-0 overflow-hidden">
+                  <div className="flex flex-wrap items-baseline gap-1 mb-2 break-words">
+                    <span className="text-2xl sm:text-3xl font-bold break-all min-w-0">
+                      ₹{((plan.prices.yearly / 100).toLocaleString('en-IN'))}/yr
                     </span>
-                    <span className="text-gray-400 text-xl">+</span>
-                    <span className="text-2xl font-bold">
-                      ₹{((plan.prices.perUser || 0) * (selectedPlan === plan.id ? (customUserCount || plan.minUsers || 11) : plan.minUsers || 11)) / 100}
+                    <span className="text-gray-400 text-lg sm:text-xl flex-shrink-0">+</span>
+                    <span className="text-xl sm:text-2xl font-bold break-all min-w-0">
+                      ₹{(((plan.prices.perUser || 0) * (selectedPlan === plan.id ? (customUserCount || plan.minUsers || 10) : plan.minUsers || 10)) / 100).toLocaleString('en-IN')}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 break-words">
                     {t('institution_register.custom_plan_price_breakdown', {
                       baseText: t('institution_register.custom_plan_base_price', { base: plan.prices.yearly / 100 }),
                       userText: t('institution_register.custom_plan_per_user', {
-                        count: selectedPlan === plan.id ? (customUserCount || plan.minUsers || 11) : plan.minUsers || 11,
+                        count: selectedPlan === plan.id ? (customUserCount || plan.minUsers || 10) : plan.minUsers || 10,
                         price: plan.prices.perUser / 100
                       })
                     })}
                   </p>
                 </div>
                 <div className="mb-4">
-                  <p className="text-sm text-gray-400 mb-2">{t('institution_register.admin_dashboard')}</p>
+                  <p className="text-sm text-gray-300 mb-2">1 Admin Dashboard +</p>
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
-                      value={selectedPlan === plan.id ? customUserCount : plan.minUsers || 11}
+                      value={selectedPlan === plan.id ? customUserCount : plan.minUsers || 10}
                       onChange={(e) => {
                         const inputValue = e.target.value;
                         // Allow empty input or any number
                         if (inputValue === '') {
                           setCustomUserCount('');
-                          setCustomUserCountError(t('institution_register.custom_plan_min_users_error', { count: plan.minUsers || 11 }));
+                          setCustomUserCountError(t('institution_register.custom_plan_min_users_error', { count: plan.minUsers || 10 }));
                           if (selectedPlan !== plan.id) {
                             setSelectedPlan(plan.id);
                           }
@@ -902,8 +902,8 @@ const InstitutionRegister = () => {
                         setCustomUserCount(value);
                         
                         // Show error if below minimum
-                        if (value < (plan.minUsers || 11)) {
-                          setCustomUserCountError(t('institution_register.custom_plan_min_users_error', { count: plan.minUsers || 11 }));
+                        if (value < (plan.minUsers || 10)) {
+                          setCustomUserCountError(t('institution_register.custom_plan_min_users_error', { count: plan.minUsers || 10 }));
                         } else {
                           setCustomUserCountError('');
                         }
@@ -922,11 +922,16 @@ const InstitutionRegister = () => {
                         customUserCountError && selectedPlan === plan.id ? 'border-red-500' : 'border-white/10'
                       }`}
                     />
-                    <span className="text-sm text-gray-400">{t('institution_register.users')}</span>
+                    <span className="text-sm text-gray-300">{t('institution_register.users')}</span>
                   </div>
                   {customUserCountError && selectedPlan === plan.id && (
                     <p className="text-xs text-red-400 mt-1">{customUserCountError}</p>
                   )}
+                  <div className="mt-2 min-w-0">
+                    <p className="text-lg sm:text-xl font-bold text-teal-400 break-all overflow-hidden">
+                      ₹{(((plan.prices.yearly || 0) + ((plan.prices.perUser || 0) * (selectedPlan === plan.id ? (customUserCount || plan.minUsers || 10) : plan.minUsers || 10))) / 100).toLocaleString('en-IN')} Total
+                    </p>
+                  </div>
                 </div>
               </>
             ) : (
@@ -943,12 +948,25 @@ const InstitutionRegister = () => {
               </>
             )}
             <ul className="space-y-2 mb-6">
-              {plan.features.map((feature, idx) => (
-                <li key={idx} className="flex items-center gap-2 text-sm">
-                  <Check className="w-4 h-4 text-teal-500" />
-                  {feature}
-                </li>
-              ))}
+              {plan.features.map((feature, idx) => {
+                // Map feature names to translation keys
+                const featureKeyMap = {
+                  'Custom Branding': 'institution_register.feature_custom_branding',
+                  'Advanced Analytics': 'institution_register.feature_advanced_analytics',
+                  'AI Features': 'institution_register.feature_ai_features',
+                  'API Access': 'institution_register.feature_api_access',
+                  'Bulk User Management': 'institution_register.feature_bulk_user_management',
+                  'Detailed Export Results': 'institution_register.feature_detailed_export_results'
+                };
+                const translationKey = featureKeyMap[feature] || feature;
+                const displayFeature = translationKey.startsWith('institution_register.') ? t(translationKey) : feature;
+                return (
+                  <li key={idx} className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 text-teal-500" />
+                    {displayFeature}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}

@@ -1410,7 +1410,13 @@
     "users": "उपयोगकर्ता",
     "custom_plan_base_price": "आधार ₹{{base}}",
     "custom_plan_per_user": "{{count}} उपयोगकर्ता × ₹{{price}}",
-    "custom_plan_price_breakdown": "({{baseText}} + {{userText}})"
+    "custom_plan_price_breakdown": "({{baseText}} + {{userText}})",
+    "feature_custom_branding": "कस्टम ब्रांडिंग",
+    "feature_advanced_analytics": "उन्नत विश्लेषण",
+    "feature_ai_features": "AI सुविधाएं",
+    "feature_api_access": "API एक्सेस",
+    "feature_bulk_user_management": "बल्क उपयोगकर्ता प्रबंधन",
+    "feature_detailed_export_results": "विस्तृत निर्यात परिणाम"
   },
   "common": {
     "something_went_wrong": "कुछ गलत हो गया। कृपया पुनः प्रयास करें।",

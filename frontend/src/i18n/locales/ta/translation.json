@@ -1277,7 +1277,13 @@
     "users": "பயனர்கள்",
     "custom_plan_base_price": "அடிப்படை ₹{{base}}",
     "custom_plan_per_user": "{{count}} பயனர்கள் × ₹{{price}}",
-    "custom_plan_price_breakdown": "({{baseText}} + {{userText}})"
+    "custom_plan_price_breakdown": "({{baseText}} + {{userText}})",
+    "feature_custom_branding": "தனிப்பயன் பிராண்டிங்",
+    "feature_advanced_analytics": "மேம்பட்ட பகுப்பாய்வு",
+    "feature_ai_features": "AI அம்சங்கள்",
+    "feature_api_access": "API அணுகல்",
+    "feature_bulk_user_management": "மொத்த பயனர் மேலாண்மை",
+    "feature_detailed_export_results": "விரிவான ஏற்றுமதி முடிவுகள்"
   },
   "institution_admin": {
     "fetch_users_error": "பயனர்களைப் பெறுவதில் தோல்வி",

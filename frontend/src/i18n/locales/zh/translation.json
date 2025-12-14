@@ -1470,6 +1470,12 @@
     "users": "用户",
     "custom_plan_base_price": "基础 ₹{{base}}",
     "custom_plan_per_user": "{{count}} 用户 × ₹{{price}}",
-    "custom_plan_price_breakdown": "({{baseText}} + {{userText}})"
+    "custom_plan_price_breakdown": "({{baseText}} + {{userText}})",
+    "feature_custom_branding": "自定义品牌",
+    "feature_advanced_analytics": "高级分析",
+    "feature_ai_features": "AI功能",
+    "feature_api_access": "API访问",
+    "feature_bulk_user_management": "批量用户管理",
+    "feature_detailed_export_results": "详细导出结果"
   }
 }
