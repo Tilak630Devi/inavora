@@ -1,0 +1,232 @@
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import api from '../../config/api';
+import TestimonialCard from '../Testimonials/TestimonialCard';
+import TestimonialForm from '../Testimonials/TestimonialForm';
+import { Star, MessageSquare, Plus, ArrowLeft } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+const Testimonials = () => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [testimonials, setTestimonials] = useState([]);
+  const [stats, setStats] = useState({ averageRating: 0, totalCount: 0 });
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [filters, setFilters] = useState({ rating: '', sort: 'newest' });
+  const [pagination, setPagination] = useState({ page: 1, limit: 12, total: 0, pages: 1 });
+
+  useEffect(() => {
+    fetchTestimonials();
+  }, [pagination.page, filters]);
+
+  const fetchTestimonials = async () => {
+    try {
+      setLoading(true);
+      const params = {
+        page: pagination.page,
+        limit: pagination.limit,
+        ...(filters.rating && { rating: filters.rating }),
+        ...(filters.sort && { sort: filters.sort })
+      };
+      const response = await api.get('/testimonials', { params });
+      
+      if (response.data.success) {
+        setTestimonials(response.data.data.testimonials);
+        setStats(response.data.data.stats);
+        setPagination(response.data.data.pagination);
+      }
+    } catch (error) {
+      console.error('Error fetching testimonials:', error);
+      toast.error(t('testimonials.loading_error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+    setPagination({ ...pagination, page: 1 });
+  };
+
+  const handlePageChange = (newPage) => {
+    setPagination({ ...pagination, page: newPage });
+  };
+
+  const handleFormSuccess = () => {
+    fetchTestimonials();
+    toast.success(t('testimonials.submit_success'));
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+      {/* Header */}
+      <header className="border-b border-white/10 bg-slate-900/50 backdrop-blur-xl sticky top-0 z-40">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>{t('testimonials.back')}</span>
+            </button>
+            <h1 className="text-2xl font-bold">{t('testimonials.page_title')}</h1>
+            <div className="w-20"></div> {/* Spacer for centering */}
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-6 py-12">
+        {/* Hero Section */}
+        <div className="text-center mb-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/30 rounded-full mb-4"
+          >
+            <MessageSquare className="w-5 h-5 text-blue-400" />
+            <span className="text-blue-400 font-medium">{t('testimonials.badge_text')}</span>
+          </motion.div>
+          
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-5xl font-bold mb-6 bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent"
+          >
+            {t('testimonials.page_title')}
+          </motion.h1>
+          
+          {stats.totalCount > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="flex items-center justify-center gap-4 text-slate-400 mb-8"
+            >
+              <div className="flex items-center gap-1">
+                <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
+                <span className="text-2xl font-semibold text-white">
+                  {stats.averageRating.toFixed(1)}
+                </span>
+              </div>
+              <span>•</span>
+              <span className="text-lg">{stats.totalCount} {t('testimonials.reviews')}</span>
+            </motion.div>
+          )}
+
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            onClick={() => setShowForm(true)}
+            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-teal-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/25 transition-all text-lg"
+          >
+            <Plus className="w-6 h-6" />
+            {t('testimonials.share_experience')}
+          </motion.button>
+        </div>
+
+        {/* Filters */}
+        {stats.totalCount > 0 && (
+          <div className="mb-8 flex flex-wrap items-center gap-4 justify-center">
+            <select
+              value={filters.rating}
+              onChange={(e) => handleFilterChange({ ...filters, rating: e.target.value })}
+              className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            >
+              <option value="">{t('testimonials.all_ratings')}</option>
+              <option value="5">{t('testimonials.filter_5_stars')}</option>
+              <option value="4">{t('testimonials.filter_4_stars')}</option>
+              <option value="3">{t('testimonials.filter_3_stars')}</option>
+              <option value="2">{t('testimonials.filter_2_stars')}</option>
+              <option value="1">{t('testimonials.filter_1_star')}</option>
+            </select>
+
+            <select
+              value={filters.sort}
+              onChange={(e) => handleFilterChange({ ...filters, sort: e.target.value })}
+              className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            >
+              <option value="newest">{t('testimonials.sort_newest')}</option>
+              <option value="oldest">{t('testimonials.sort_oldest')}</option>
+              <option value="highest">{t('testimonials.sort_highest')}</option>
+              <option value="lowest">{t('testimonials.sort_lowest')}</option>
+            </select>
+          </div>
+        )}
+
+        {/* Testimonials Grid */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-12 h-12 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : testimonials.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {testimonials.map((testimonial, index) => (
+                <TestimonialCard
+                  key={testimonial._id}
+                  testimonial={testimonial}
+                  index={index}
+                />
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {pagination.pages > 1 && (
+              <div className="flex items-center justify-center gap-4 mt-8">
+                <button
+                  onClick={() => handlePageChange(pagination.page - 1)}
+                  disabled={pagination.page === 1}
+                  className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {t('testimonials.previous')}
+                </button>
+                <span className="text-slate-400">
+                  {t('testimonials.page_of', { current: pagination.page, total: pagination.pages })}
+                </span>
+                <button
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                  disabled={pagination.page === pagination.pages}
+                  className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {t('testimonials.next')}
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-20">
+            <MessageSquare className="w-16 h-16 mx-auto mb-6 opacity-50 text-slate-400" />
+            <h3 className="text-2xl font-bold mb-4">{t('testimonials.no_testimonials_title')}</h3>
+            <p className="text-slate-400 mb-8 max-w-md mx-auto">
+              {t('testimonials.no_testimonials_description')}
+            </p>
+            <button
+              onClick={() => setShowForm(true)}
+              className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-teal-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/25 transition-all"
+            >
+              <Plus className="w-5 h-5" />
+              {t('testimonials.share_experience')}
+            </button>
+          </div>
+        )}
+      </main>
+
+      {/* Testimonial Form Modal */}
+      {showForm && (
+        <TestimonialForm
+          onClose={() => setShowForm(false)}
+          onSuccess={handleFormSuccess}
+        />
+      )}
+    </div>
+  );
+};
+
+export default Testimonials;
+

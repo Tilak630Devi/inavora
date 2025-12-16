@@ -23,6 +23,7 @@ const Careers = lazy(() => import('./components/pages/Careers'));
 const Contact = lazy(() => import('./components/pages/Contact'));
 const PrivacyPolicy = lazy(() => import('./components/pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./components/pages/TermsOfService'));
+const Testimonials = lazy(() => import('./components/pages/Testimonials'));
 const SuperAdminLayout = lazy(() => import('./components/SuperAdmin/SuperAdminLayout'));
 const SuperAdminLogin = lazy(() => import('./components/SuperAdmin/pages/SuperAdminLogin'));
 const DashboardPage = lazy(() => import('./components/SuperAdmin/pages/DashboardPage'));
@@ -36,6 +37,7 @@ const ActivityPage = lazy(() => import('./components/SuperAdmin/pages/ActivityPa
 const SettingsPage = lazy(() => import('./components/SuperAdmin/pages/SettingsPage'));
 const JobsPage = lazy(() => import('./components/SuperAdmin/pages/JobsPage'));
 const ApplicationsPage = lazy(() => import('./components/SuperAdmin/pages/ApplicationsPage'));
+const TestimonialsPage = lazy(() => import('./components/SuperAdmin/pages/TestimonialsPage'));
 const InstitutionAdmin = lazy(() => import('./components/InstitutionAdmin/InstitutionAdmin'));
 const InstitutionRegister = lazy(() => import('./components/pages/InstitutionRegister'));
 
@@ -153,6 +155,7 @@ function App() {
               <Route path="/contact" element={<Contact />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-of-service" element={<TermsOfService />} />
+              <Route path="/testimonials" element={<Testimonials />} />
               
               {/* Super Admin Routes */}
               <Route path="/super-admin/login" element={<SuperAdminLogin />} />
@@ -167,6 +170,7 @@ function App() {
                 <Route path="system" element={<SystemPage />} />
                 <Route path="activity" element={<ActivityPage />} />
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="testimonials" element={<TestimonialsPage />} />
                 <Route path="jobs" element={<JobsPage />} />
                 <Route path="applications" element={<ApplicationsPage />} />
               </Route>

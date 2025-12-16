@@ -21,13 +21,16 @@ import {
   User,
   ChevronDown,
   LogOut,
-  Crown
+  Crown,
+  MessageSquare
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 // eslint-disable-next-line
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { JoinPresentationBtn, JoinPresentationDialog } from '../common/JoinPresentationDialog';
 import LanguageSelector from '../common/LanguageSelector/LanguageSelector';
+import TestimonialsSection from '../Testimonials/TestimonialsSection';
+import TestimonialForm from '../Testimonials/TestimonialForm';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -42,6 +45,7 @@ export default function Landing() {
   const { scrollY } = useScroll();
   const [platformUserCount, setPlatformUserCount] = useState(124); // Default to 124 as in the original
   const [billingCycle, setBillingCycle] = useState('monthly'); // Add billing cycle state
+  const [showTestimonialForm, setShowTestimonialForm] = useState(false);
   const typewriterWordsRef = useRef([
     t('landing.engage'),
     t('landing.connect'),
@@ -1004,6 +1008,9 @@ export default function Landing() {
             </div>
           </div>
         </section>
+
+        {/* Testimonials Section */}
+        <TestimonialsSection featured={true} limit={6} />
       </main>
 
       {/* Scroll to Top Button */}
@@ -1048,6 +1055,7 @@ export default function Landing() {
                   { name: t('footer.about_us'), path: "/about" },
                   { name: t('footer.pricing'), path: "/pricing" },
                   { name: t('footer.careers'), path: "/careers" },
+                  { name: 'Testimonials', path: "/testimonials" },
                   { name: t('footer.contact'), path: "/contact" }
                 ].map((link) => (
                   <li key={link.name}>
@@ -1158,6 +1166,17 @@ export default function Landing() {
       {showJoinDialog &&
         <JoinPresentationDialog onCancel={setShowJoinDialog} />
       }
+
+      {/* Testimonial Form Modal - Only show if triggered from testimonials section */}
+      {showTestimonialForm && (
+        <TestimonialForm
+          onClose={() => setShowTestimonialForm(false)}
+          onSuccess={() => {
+            setShowTestimonialForm(false);
+            toast.success('Thank you! Your testimonial has been submitted and will be reviewed.');
+          }}
+        />
+      )}
     </div>
   );
 };

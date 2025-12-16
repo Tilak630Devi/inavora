@@ -32,6 +32,8 @@ const institutionAdminRoutes = require('./routes/institutionAdminRoutes');
 const institutionRegistrationRoutes = require('./routes/institutionRegistrationRoutes');
 const passwordResetRoutes = require('./routes/passwordResetRoutes');
 const testEmailRoutes = require('./routes/testEmailRoutes');
+const testimonialRoutes = require('./routes/testimonialRoutes');
+const contactRoutes = require('./routes/contactRoutes');
 const setupSocketHandlers = require('./socket/socketHandlers');
 const { checkExpiredInstitutionSubscriptions } = require('./services/institutionPlanService');
 
@@ -148,6 +150,8 @@ app.use('/api/job-postings', jobPostingRoutes);
 app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/institution-admin', institutionAdminRoutes);
 app.use('/api/institution/register', institutionRegistrationRoutes);
+app.use('/api/testimonials', testimonialRoutes);
+app.use('/api/contact', contactRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

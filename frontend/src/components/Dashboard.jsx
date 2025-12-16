@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { Plus, LogOut, ChevronDown, Presentation, LoaderCircle, Trash2, Search, ChevronLeft, ChevronRight, LayoutGrid, Crown, LayoutTemplate, BarChart3, Trophy, PieChart } from 'lucide-react';
+import { Plus, LogOut, ChevronDown, Presentation, LoaderCircle, Trash2, Search, ChevronLeft, ChevronRight, LayoutGrid, Crown, LayoutTemplate, BarChart3, Trophy, PieChart, MessageSquare, Mail, HelpCircle } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '../context/AuthContext';
 import * as presentationService from '../services/presentationService';
@@ -10,6 +10,7 @@ import * as presentationService from '../services/presentationService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { JoinPresentationBtn, JoinPresentationDialog } from './common/JoinPresentationDialog';
 import LanguageSelector from './common/LanguageSelector/LanguageSelector';
+import SupportWidget from './common/SupportWidget';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -294,6 +295,22 @@ const Dashboard = () => {
                     {t('navbar.upgrade_to_pro')}
                   </Link>
                 )}
+                <Link
+                  to="/testimonials"
+                  className='px-4 py-3 border-b border-white/5 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2'
+                  onClick={() => setShowUserMenu(false)}
+                >
+                  <MessageSquare className='w-4 h-4' />
+                  {t('dashboard.share_feedback')}
+                </Link>
+                <Link
+                  to="/contact"
+                  className='px-4 py-3 border-b border-white/5 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2'
+                  onClick={() => setShowUserMenu(false)}
+                >
+                  <Mail className='w-4 h-4' />
+                  {t('dashboard.contact_support')}
+                </Link>
                 <button
                   onClick={(e) => handleLogout(e)}
                   data-logout-button="true"
@@ -604,6 +621,9 @@ const Dashboard = () => {
       {showDialog &&
         <JoinPresentationDialog onCancel={setShowDialog} />
       }
+      
+      {/* Support Widget */}
+      <SupportWidget />
     </div>
   );
 };

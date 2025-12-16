@@ -5,21 +5,67 @@ import { Menu, X, Mail, Send, Phone, MapPin, Clock, ArrowLeft } from 'lucide-rea
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
+import api from '../../config/api';
+import { useAuth } from '../../context/AuthContext';
 
 const Contact = () => {
     const navigate = useNavigate();
     const { t } = useTranslation();
+    const { currentUser } = useAuth();
     const [formData, setFormData] = useState({
-        name: '',
-        email: '',
+        name: currentUser?.displayName || '',
+        email: currentUser?.email || '',
         subject: '',
-        message: ''
+        message: '',
+        category: 'general'
     });
+    const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState({});
 
-    const handleSubmit = (e) => {
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+        if (errors[name]) {
+            setErrors(prev => ({ ...prev, [name]: '' }));
+        }
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        toast.success(t('contact.message_sent_success'));
-        setFormData({ name: '', email: '', subject: '', message: '' });
+        setLoading(true);
+        setErrors({});
+
+        try {
+            const response = await api.post('/contact', formData);
+            
+            if (response.data.success) {
+                toast.success(response.data.message || t('contact.message_sent_success'));
+                setFormData({
+                    name: currentUser?.displayName || '',
+                    email: currentUser?.email || '',
+                    subject: '',
+                    message: '',
+                    category: 'general'
+                });
+            }
+        } catch (error) {
+            const errorMessage = error.response?.data?.message || t('contact.message_sent_error');
+            toast.error(errorMessage);
+            
+            // Set field-specific errors if provided
+            if (error.response?.data?.errors) {
+                const fieldErrors = {};
+                error.response.data.errors.forEach(err => {
+                    const fieldName = err.path || err.param || err.field;
+                    if (fieldName) {
+                        fieldErrors[fieldName] = err.msg || err.message;
+                    }
+                });
+                setErrors(fieldErrors);
+            }
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -152,11 +198,17 @@ const Contact = () => {
                                 <input
                                     type="text"
                                     required
+                                    name="name"
                                     value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-white placeholder-gray-500 transition-all"
+                                    onChange={handleChange}
+                                    className={`w-full px-4 py-3 bg-black/20 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-white placeholder-gray-500 transition-all ${
+                                        errors.name ? 'border-red-500' : 'border-white/10'
+                                    }`}
                                     placeholder={t('contact.full_name_placeholder')}
                                 />
+                                {errors.name && (
+                                    <p className="text-red-400 text-sm mt-1">{errors.name}</p>
+                                )}
                             </div>
 
                             <div>
@@ -164,11 +216,17 @@ const Contact = () => {
                                 <input
                                     type="email"
                                     required
+                                    name="email"
                                     value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-white placeholder-gray-500 transition-all"
+                                    onChange={handleChange}
+                                    className={`w-full px-4 py-3 bg-black/20 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-white placeholder-gray-500 transition-all ${
+                                        errors.email ? 'border-red-500' : 'border-white/10'
+                                    }`}
                                     placeholder={t('contact.email_address_placeholder')}
                                 />
+                                {errors.email && (
+                                    <p className="text-red-400 text-sm mt-1">{errors.email}</p>
+                                )}
                             </div>
 
                             <div>
@@ -176,11 +234,34 @@ const Contact = () => {
                                 <input
                                     type="text"
                                     required
+                                    name="subject"
                                     value={formData.subject}
-                                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-white placeholder-gray-500 transition-all"
+                                    onChange={handleChange}
+                                    className={`w-full px-4 py-3 bg-black/20 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-white placeholder-gray-500 transition-all ${
+                                        errors.subject ? 'border-red-500' : 'border-white/10'
+                                    }`}
                                     placeholder={t('contact.subject_placeholder')}
                                 />
+                                {errors.subject && (
+                                    <p className="text-red-400 text-sm mt-1">{errors.subject}</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">{t('contact.category_label')}</label>
+                                <select
+                                    name="category"
+                                    value={formData.category}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-white transition-all"
+                                >
+                                    <option value="general">{t('contact.category_general')}</option>
+                                    <option value="plan">{t('contact.category_plan')}</option>
+                                    <option value="technical">{t('contact.category_technical')}</option>
+                                    <option value="billing">{t('contact.category_billing')}</option>
+                                    <option value="feature-request">{t('contact.category_feature_request')}</option>
+                                    <option value="bug-report">{t('contact.category_bug_report')}</option>
+                                </select>
                             </div>
 
                             <div>
@@ -188,19 +269,35 @@ const Contact = () => {
                                 <textarea
                                     required
                                     rows={5}
+                                    name="message"
                                     value={formData.message}
-                                    onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-white placeholder-gray-500 transition-all resize-none"
+                                    onChange={handleChange}
+                                    className={`w-full px-4 py-3 bg-black/20 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-white placeholder-gray-500 transition-all resize-none ${
+                                        errors.message ? 'border-red-500' : 'border-white/10'
+                                    }`}
                                     placeholder={t('contact.message_placeholder')}
                                 />
+                                {errors.message && (
+                                    <p className="text-red-400 text-sm mt-1">{errors.message}</p>
+                                )}
                             </div>
 
                             <button
                                 type="submit"
-                                className="w-full py-4 bg-gradient-to-r from-blue-600 to-teal-500 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-teal-500/25 transition-all flex items-center justify-center gap-2"
+                                disabled={loading}
+                                className="w-full py-4 bg-gradient-to-r from-blue-600 to-teal-500 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-teal-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <Send className="w-5 h-5" />
-                                {t('contact.send_message_button')}
+                                {loading ? (
+                                    <>
+                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        {t('contact.sending')}
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send className="w-5 h-5" />
+                                        {t('contact.send_message_button')}
+                                    </>
+                                )}
                             </button>
                         </form>
                     </motion.div>
