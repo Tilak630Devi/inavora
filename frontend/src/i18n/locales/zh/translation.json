@@ -1845,5 +1845,12 @@
       "submit_success_message": "谢谢！您的评价已提交，将进行审核。",
       "submit_error": "提交评价失败。请重试。"
     }
+  },
+  "common": {
+    "something_went_wrong": "出了点问题。请再试一次。",
+    "network_error": "网络错误。请检查您的连接。",
+    "request_failed": "请求失败。请再试一次。",
+    "operation_failed": "操作失败。请再试一次。",
+    "back": "返回"
   }
 }

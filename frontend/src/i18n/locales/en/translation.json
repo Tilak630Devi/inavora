@@ -1000,7 +1000,6 @@
     "free_plan_feature2": "3 Presentations per month",
     "free_plan_feature3": "10 Slides per presentation",
     "free_plan_feature4": "20 Audience members",
-
     "free_plan_button_current": "Current Plan",
     "free_plan_button_continue": "Continue with Free",
     "pro_plan_name": "Pro",
@@ -1015,7 +1014,6 @@
     "pro_plan_feature3": "Unlimited Slides",
     "pro_plan_feature4": "Unlimited Audience",
     "pro_plan_feature5": "Export Results",
-
     "pro_plan_button": "Upgrade to Pro",
     "pro_plan_popular": "POPULAR",
     "lifetime_plan_name": "Lifetime",
@@ -1052,7 +1050,6 @@
     "ai_features_feature": "AI Features (Coming Soon)",
     "export_results_feature": "Export Results",
     "detailed_export_results_feature": "Detailed Export Results",
-
     "priority_support_feature": "Priority Support",
     "lifetime_access_feature": "Lifetime Access",
     "custom_branding_feature": "Custom Branding",
@@ -2016,6 +2013,7 @@
     "something_went_wrong": "Something went wrong. Please try again.",
     "network_error": "Network error. Please check your connection.",
     "request_failed": "Request failed. Please try again.",
-    "operation_failed": "Operation failed. Please try again."
+    "operation_failed": "Operation failed. Please try again.",
+    "back": "Back"
   }
 }

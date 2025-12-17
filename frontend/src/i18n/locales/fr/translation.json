@@ -1720,5 +1720,12 @@
       "submit_success_message": "Merci ! Votre témoignage a été envoyé et sera examiné.",
       "submit_error": "Échec de l'envoi du témoignage. Veuillez réessayer."
     }
+  },
+  "common": {
+    "something_went_wrong": "Quelque chose s'est mal passé. Veuillez réessayer.",
+    "network_error": "Erreur réseau. Veuillez vérifier votre connexion.",
+    "request_failed": "La requête a échoué. Veuillez réessayer.",
+    "operation_failed": "L'opération a échoué. Veuillez réessayer.",
+    "back": "Retour"
   }
 }

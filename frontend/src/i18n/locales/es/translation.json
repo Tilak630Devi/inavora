@@ -1815,5 +1815,12 @@
       "submit_success_message": "¡Gracias! Tu testimonio ha sido enviado y será revisado.",
       "submit_error": "Error al enviar el testimonio. Por favor intenta de nuevo."
     }
+  },
+  "common": {
+    "something_went_wrong": "Algo salió mal. Por favor, inténtelo de nuevo.",
+    "network_error": "Error de red. Por favor, compruebe su conexión.",
+    "request_failed": "Solicitud fallida. Por favor, inténtelo de nuevo.",
+    "operation_failed": "Operación fallida. Por favor, inténtelo de nuevo.",
+    "back": "Volver"
   }
 }

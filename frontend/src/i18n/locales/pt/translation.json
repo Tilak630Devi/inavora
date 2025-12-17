@@ -1824,5 +1824,12 @@
       "submit_success_message": "Obrigado! Seu depoimento foi enviado e será revisado.",
       "submit_error": "Falha ao enviar depoimento. Por favor tente novamente."
     }
+  },
+  "common": {
+    "something_went_wrong": "Algo deu errado. Por favor, tente novamente.",
+    "network_error": "Erro de rede. Por favor, verifique sua conexão.",
+    "request_failed": "A solicitação falhou. Por favor, tente novamente.",
+    "operation_failed": "A operação falhou. Por favor, tente novamente.",
+    "back": "Voltar"
   }
 }
