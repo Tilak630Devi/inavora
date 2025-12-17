@@ -57,9 +57,21 @@ const Dashboard = () => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         const logoutButton = document.querySelector('[data-logout-button]');
+        const feedbackButton = document.querySelector('[data-feedback-button]');
+        const contactButton = document.querySelector('[data-contact-button]');
+        
         if (logoutButton && (logoutButton === event.target || logoutButton.contains(event.target))) {
           return;
         }
+        
+        if (feedbackButton && (feedbackButton === event.target || feedbackButton.contains(event.target))) {
+          return;
+        }
+        
+        if (contactButton && (contactButton === event.target || contactButton.contains(event.target))) {
+          return;
+        }
+        
         setShowUserMenu(false);
       }
     };
@@ -335,22 +347,28 @@ const Dashboard = () => {
                     {t('navbar.upgrade_to_pro')}
                   </Link>
                 )}
-                <Link
-                  to="/testimonials"
-                  className='px-4 py-3 border-b border-white/5 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2'
-                  onClick={() => setShowUserMenu(false)}
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    setTimeout(() => navigate('/testimonials'), 100);
+                  }}
+                  className='px-4 py-3 border-b border-white/5 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2 w-full text-left'
+                  data-feedback-button="true"
                 >
                   <MessageSquare className='w-4 h-4' />
                   {t('dashboard.share_feedback')}
-                </Link>
-                <Link
-                  to="/contact"
-                  className='px-4 py-3 border-b border-white/5 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2'
-                  onClick={() => setShowUserMenu(false)}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    setTimeout(() => navigate('/contact'), 100);
+                  }}
+                  className='px-4 py-3 border-b border-white/5 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2 w-full text-left'
+                  data-contact-button="true"
                 >
                   <Mail className='w-4 h-4' />
                   {t('dashboard.contact_support')}
-                </Link>
+                </button>
                 <button
                   onClick={(e) => handleLogout(e)}
                   data-logout-button="true"

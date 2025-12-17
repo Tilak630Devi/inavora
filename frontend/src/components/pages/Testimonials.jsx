@@ -79,12 +79,11 @@ const Testimonials = () => {
           <div className="flex items-center justify-between">
             <button
               onClick={() => navigate(-1)}
-              className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+              className="flex items-center border border-white/30 px-3 py-1 rounded-lg gap-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4" />
               <span>{t('testimonials.back')}</span>
             </button>
-            <h1 className="text-2xl font-bold">{t('testimonials.page_title')}</h1>
             <div className="w-20"></div> {/* Spacer for centering */}
           </div>
         </div>
