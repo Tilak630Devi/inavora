@@ -140,6 +140,7 @@ router.get('/:id/results', presentationController.getPresentationResultById);
  * @access  Private
  */
 router.delete('/:id/results', presentationController.clearPresentationResults);
+router.post('/:id/recalculate-scores', presentationController.recalculatePresentationScores);
 
 /**
  * @route   DELETE /api/presentations/:presentationId/slides/:slideId/results

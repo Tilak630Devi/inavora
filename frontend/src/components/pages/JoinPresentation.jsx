@@ -1161,7 +1161,7 @@ const JoinPresentation = () => {
 
   // Presentation screen
   return (
-    <div className="min-h-screen bg-[#1A1A1A] text-[#E0E0E0] flex flex-col">
+    <div className="h-screen bg-[#1A1A1A] text-[#E0E0E0] flex flex-col overflow-hidden">
       {/* Top Bar */}
       <div className="bg-[#1F1F1F] border-b border-[#2A2A2A] px-4 sm:px-6 py-3 sm:py-4 shadow-[0_4px_20px_rgba(0,0,0,0.3)] flex-shrink-0">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -1190,7 +1190,7 @@ const JoinPresentation = () => {
       </div>
 
       {/* Main Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 custom-scrollbar min-h-0">
         <div className="max-w-6xl mx-auto w-full">
           <div className="w-full bg-[#1F1F1F] rounded-2xl border border-[#2A2A2A] shadow-[0_8px_32px_rgba(0,0,0,0.4)] p-6 sm:p-8 lg:p-10">
             {renderSlideContent()}

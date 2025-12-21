@@ -122,14 +122,22 @@ function attachQuizHandlers(io, socket) {
         responseTime
       });
 
-      // Calculate score
+      // Calculate score - incorrect answers get 0 points
       const score = quizScoringService.calculateQuestionScore({
         isCorrect: sessionResponse.isCorrect,
         responseTime,
         timeLimit: slide.quizSettings.timeLimit
       });
+      
+      // Log for debugging - ensure incorrect answers get 0
+      if (!sessionResponse.isCorrect && score !== 0) {
+        Logger.warn(`Incorrect answer but score is not 0: score=${score}, isCorrect=${sessionResponse.isCorrect}`);
+      }
+      
+      // Force score to 0 if answer is incorrect (safety check)
+      const finalScore = sessionResponse.isCorrect ? score : 0;
 
-      // Save response to database
+      // Save response to database - use finalScore (0 for incorrect)
       const response = new Response({
         presentationId,
         slideId,
@@ -138,27 +146,27 @@ function attachQuizHandlers(io, socket) {
         answer,
         responseTime,
         isCorrect: sessionResponse.isCorrect,
-        score
+        score: finalScore
       });
 
       await response.save();
 
-      // Update participant's cumulative score
+      // Update participant's cumulative score - use finalScore (0 for incorrect)
       await quizScoringService.updateParticipantScore({
         presentationId,
         participantId,
         participantName,
         slideId,
-        score,
+        score: finalScore,
         responseTime,
         isCorrect: sessionResponse.isCorrect
       });
 
-      // Notify participant of successful submission
+      // Notify participant of successful submission - use finalScore
       socket.emit('quiz-answer-submitted', {
         slideId,
         isCorrect: sessionResponse.isCorrect,
-        score,
+        score: finalScore,
         responseTime
       });
 
@@ -168,6 +176,27 @@ function attachQuizHandlers(io, socket) {
         slideId,
         results
       });
+
+      // Update and broadcast leaderboard in real-time
+      try {
+        const leaderboard = await quizScoringService.getLeaderboard(presentationId, 10);
+        
+        // Broadcast updated leaderboard to all connected clients (including results page)
+        // Results page joins presentation-${presentationId} room
+        io.to(`presentation-${presentationId}`).emit('leaderboard-updated', {
+          presentationId,
+          leaderboard
+        });
+        
+        // Also send to presenter room
+        io.to(`presenter-${presentationId}`).emit('leaderboard-data', {
+          presentationId,
+          leaderboard
+        });
+      } catch (leaderboardError) {
+        Logger.error('Error updating leaderboard after quiz answer', leaderboardError);
+        // Don't fail the quiz submission if leaderboard update fails
+      }
 
     } catch (error) {
       Logger.error('Error submitting quiz answer', error);

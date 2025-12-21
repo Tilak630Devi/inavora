@@ -139,11 +139,6 @@ const ScalesParticipantInput = ({
     );
   };
 
-  // Helper to get distribution for a value
-  const getDistributionForValue = (value) => {
-    return scaleDistribution[value] || 0;
-  };
-
   // Helper to get average for a statement
   const getStatementAverage = (index) => {
     if (isMultiStatement && scaleStatementAverages[index] !== undefined) {
@@ -178,84 +173,35 @@ const ScalesParticipantInput = ({
             </div>
 
             {isMultiStatement ? (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {statements.map((statement, index) => {
                   const avg = getStatementAverage(index);
-                  const maxCount = Math.max(...Object.values(scaleDistribution || {}), 1);
                   
                   return (
-                    <div key={`statement-${index}`} className="space-y-3" role="group" aria-label={t('slide_editors.scales.statement_average', { number: index + 1, statement, average: avg.toFixed(1) })}>
-                      <div className="flex items-center justify-between">
-                        <p className="text-base sm:text-lg font-medium text-[#E0E0E0]">
-                          {index + 1}. {statement}
-                        </p>
-                        <div className="text-right">
-                          <div className="text-lg sm:text-xl font-bold text-[#4CAF50]">
-                            {avg.toFixed(1)}
-                          </div>
-                          <div className="text-xs text-[#6C6C6C]">{t('slide_editors.scales.average')}</div>
+                    <div key={`statement-${index}`} className="flex items-center justify-between py-2" role="group" aria-label={t('slide_editors.scales.statement_average', { number: index + 1, statement, average: avg.toFixed(1) })}>
+                      <p className="text-base sm:text-lg font-medium text-[#E0E0E0] flex-1">
+                        {index + 1}. {statement}
+                      </p>
+                      <div className="text-right ml-4">
+                        <div className="text-lg sm:text-xl font-bold text-[#4CAF50]">
+                          {avg.toFixed(1)}
                         </div>
-                      </div>
-                      
-                      {/* Distribution bars */}
-                      <div className="space-y-2">
-                        {Array.from({ length: maxValue - minValue + 1 }, (_, offset) => minValue + offset).map((val) => {
-                          const count = getDistributionForValue(val);
-                          const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
-                          
-                          return (
-                            <div key={`dist-${index}-${val}`} className="flex items-center gap-3" role="group" aria-label={t('slide_editors.scales.value_responses', { value: val, count })}>
-                              <div className="w-8 sm:w-12 text-sm font-medium text-[#E0E0E0]">{val}</div>
-                              <div className="flex-1 h-6 sm:h-8 bg-[#2A2A2A] rounded-lg overflow-hidden border border-[#2F2F2F]">
-                                <div
-                                  className="h-full bg-gradient-to-r from-[#388E3C] to-[#4CAF50] transition-all duration-500 flex items-center justify-end pr-2"
-                                  style={{ width: `${percentage}%` }}
-                                >
-                                  {count > 0 && (
-                                    <span className="text-xs font-bold text-white">{count}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                        <div className="text-xs text-[#6C6C6C]">{t('slide_editors.scales.average')}</div>
                       </div>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="text-center mb-6">
-                  <div className="text-4xl sm:text-5xl font-bold text-[#4CAF50] mb-2">
+              <div className="flex items-center justify-between py-2">
+                <p className="text-base sm:text-lg font-medium text-[#E0E0E0] flex-1">
+                  {slide?.question || t('slide_editors.scales.default_title')}
+                </p>
+                <div className="text-right ml-4">
+                  <div className="text-lg sm:text-xl font-bold text-[#4CAF50]">
                     {scaleAverage.toFixed(1)}
                   </div>
-                  <div className="text-sm sm:text-base text-[#6C6C6C]">{t('slide_editors.scales.average_rating')}</div>
-                </div>
-                
-                {/* Distribution bars */}
-                <div className="space-y-2">
-                  {Array.from({ length: maxValue - minValue + 1 }, (_, offset) => minValue + offset).map((val) => {
-                    const count = getDistributionForValue(val);
-                    const maxCount = Math.max(...Object.values(scaleDistribution || {}), 1);
-                    const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
-                    
-                    return (
-                      <div key={`dist-single-${val}`} className="flex items-center gap-3" role="group" aria-label={t('slide_editors.scales.value_responses', { value: val, count })}>
-                        <div className="w-8 sm:w-12 text-sm font-medium text-[#E0E0E0]">{val}</div>
-                        <div className="flex-1 h-8 sm:h-10 bg-[#2A2A2A] rounded-lg overflow-hidden border border-[#2F2F2F]">
-                          <div
-                            className="h-full bg-gradient-to-r from-[#388E3C] to-[#4CAF50] transition-all duration-500 flex items-center justify-end pr-3"
-                            style={{ width: `${percentage}%` }}
-                          >
-                            {count > 0 && (
-                              <span className="text-sm font-bold text-white">{count}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <div className="text-xs text-[#6C6C6C]">{t('slide_editors.scales.average')}</div>
                 </div>
               </div>
             )}

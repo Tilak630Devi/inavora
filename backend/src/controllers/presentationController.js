@@ -1484,6 +1484,103 @@ const clearPresentationResults = asyncHandler(async (req, res, next) => {
 });
 
 /**
+ * Recalculate and fix scores for existing quiz results
+ * This ensures incorrect answers have 0 points
+ * @route POST /api/presentations/:id/recalculate-scores
+ * @access Private
+ * @param {string} req.params.id - Presentation ID
+ * @returns {Object} Success message with count of fixed participants
+ */
+const recalculatePresentationScores = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const userId = req.userId;
+  const isInstitutionAdmin = req.institutionAdmin;
+  const institutionId = req.institution?.id || req.institution?._id;
+
+  // First check if presentation exists at all
+  const presentationExists = await Presentation.findById(id).lean();
+  
+  if (!presentationExists) {
+    throw new AppError('Presentation not found', 404, 'RESOURCE_NOT_FOUND');
+  }
+
+  // Check if it belongs to the user
+  let presentation = await Presentation.findOne({ _id: id, userId }).lean();
+
+  // If not found and user is an institution admin, check if presentation belongs to any institution user
+  if (!presentation && isInstitutionAdmin && institutionId) {
+    const mongoose = require('mongoose');
+    const institutionObjectId = mongoose.Types.ObjectId.isValid(institutionId) ? new mongoose.Types.ObjectId(institutionId) : institutionId;
+    
+    const institutionUsers = await User.find({ 
+      institutionId: institutionObjectId,
+      isInstitutionUser: true 
+    }).select('_id institutionId').lean();
+    
+    const adminEmail = req.institution?.adminEmail;
+    let adminUser = null;
+    if (adminEmail) {
+      adminUser = await User.findOne({ 
+        email: adminEmail.toLowerCase(),
+        institutionId: institutionObjectId
+      }).select('_id institutionId').lean();
+      
+      if (adminUser && adminUser.institutionId && adminUser.institutionId.toString() === institutionId.toString()) {
+        const adminInList = institutionUsers.find(u => u._id.toString() === adminUser._id.toString());
+        if (!adminInList) {
+          institutionUsers.push(adminUser);
+        }
+      }
+    }
+    
+    const institutionUserIds = institutionUsers
+      .filter(user => user.institutionId && user.institutionId.toString() === institutionId.toString())
+      .map(u => u._id.toString());
+    
+    const presentationCreator = await User.findById(presentationExists.userId).select('institutionId').lean();
+    
+    const presentationUserIdStr = presentationExists.userId.toString();
+    const belongsToInstitutionUser = institutionUserIds.includes(presentationUserIdStr);
+    const creatorBelongsToInstitution = presentationCreator && 
+      presentationCreator.institutionId && 
+      presentationCreator.institutionId.toString() === institutionId.toString();
+    
+    if (belongsToInstitutionUser || creatorBelongsToInstitution) {
+      presentation = presentationExists;
+    }
+  }
+
+  if (!presentation) {
+    throw new AppError('Presentation not found or access denied', 404, 'RESOURCE_NOT_FOUND');
+  }
+
+  // Recalculate scores using the service
+  const result = await quizScoringService.recalculatePresentationScores(id);
+
+  // Also fix Response model scores
+  const Response = require('../models/Response');
+  const responses = await Response.find({ 
+    presentationId: id,
+    isCorrect: false,
+    score: { $ne: 0 }
+  });
+
+  let fixedResponses = 0;
+  for (const response of responses) {
+    response.score = 0;
+    await response.save();
+    fixedResponses++;
+  }
+
+  res.status(200).json({
+    success: true,
+    message: `Scores recalculated successfully. Fixed ${result.fixedCount} participant(s) and ${fixedResponses} response(s).`,
+    fixedCount: result.fixedCount,
+    fixedResponses
+  });
+});
+
+/**
  * Clear results for a specific slide
  * @route DELETE /api/presentations/:presentationId/slides/:slideId/results
  * @access Private
@@ -1637,6 +1734,7 @@ module.exports = {
   createSlide,
   updateSlide,
   deleteSlide,
+  recalculatePresentationScores,
   createLeaderboardForQuiz,
   getLeaderboard,
   generateLeaderboards,

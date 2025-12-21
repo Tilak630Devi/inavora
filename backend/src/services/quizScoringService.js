@@ -408,6 +408,57 @@ async function clearSlideScores(presentationId, slideId) {
   }
 }
 
+/**
+ * Recalculate and fix scores for all participants in a presentation
+ * This ensures that incorrect answers have 0 points
+ * @param {string} presentationId
+ * @returns {Promise<Object>} - Update result with count of participants fixed
+ */
+async function recalculatePresentationScores(presentationId) {
+  try {
+    const Response = require('../models/Response');
+    const participants = await ParticipantScore.find({ presentationId });
+
+    let fixedCount = 0;
+
+    for (const participant of participants) {
+      let totalScore = 0;
+      let needsUpdate = false;
+
+      // Recalculate scores for each quiz
+      for (let i = 0; i < participant.quizScores.length; i++) {
+        const quizScore = participant.quizScores[i];
+        
+        // If the answer was incorrect but score is not 0, fix it
+        if (!quizScore.isCorrect && quizScore.score !== 0) {
+          quizScore.score = 0;
+          needsUpdate = true;
+        }
+        
+        totalScore += quizScore.score;
+      }
+
+      // Update if needed
+      if (needsUpdate || participant.totalScore !== totalScore) {
+        participant.totalScore = totalScore;
+        participant.lastUpdated = new Date();
+        await participant.save();
+        fixedCount++;
+      }
+    }
+
+    Logger.info(`Recalculated scores for presentation ${presentationId}, fixed ${fixedCount} participants`);
+    
+    return {
+      success: true,
+      fixedCount
+    };
+  } catch (error) {
+    Logger.error('Error recalculating presentation scores', error);
+    throw error;
+  }
+}
+
 module.exports = {
   calculateQuestionScore,
   updateParticipantScore,
@@ -418,5 +469,6 @@ module.exports = {
   getParticipantScore,
   clearPresentationScores,
   clearSlideScores,
+  recalculatePresentationScores,
   SCORING_CONFIG
 };

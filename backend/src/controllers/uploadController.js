@@ -238,9 +238,10 @@ const deleteVideo = asyncHandler(async (req, res, next) => {
 
 /**
  * Upload PowerPoint file to Cloudinary
+ * Supports both .ppt (Microsoft PowerPoint 97-2003) and .pptx (Office Open XML) formats
  * @route POST /api/upload/powerpoint
  * @access Private
- * @param {string} req.body.powerpoint - Base64 encoded PowerPoint file
+ * @param {string} req.body.powerpoint - Base64 encoded PowerPoint file (.ppt or .pptx)
  * @returns {Object} Uploaded PowerPoint URL and public ID
  */
 const uploadPowerPoint = asyncHandler(async (req, res, next) => {
@@ -251,23 +252,40 @@ const uploadPowerPoint = asyncHandler(async (req, res, next) => {
     throw new AppError('PowerPoint file data is required', 400, 'VALIDATION_ERROR');
   }
 
-  // Check if it's a valid PowerPoint file (base64 encoded)
-  // FileReader.readAsDataURL may produce different MIME types, so we check for both the MIME type and file extension
-  const isValidPowerPointMime = powerpoint.startsWith('data:application/vnd.ms-powerpoint') || 
-                                 powerpoint.startsWith('data:application/vnd.openxmlformats-officedocument.presentationml.presentation') ||
-                                 powerpoint.startsWith('data:application/octet-stream') ||
-                                 powerpoint.startsWith('data:application/zip'); // .pptx files are ZIP archives
+  // Validate PowerPoint file format - accept files with any extension
+  // FileReader.readAsDataURL may produce different MIME types depending on browser
+  // .ppt files: application/vnd.ms-powerpoint (OLE2 compound document)
+  // .pptx files: application/vnd.openxmlformats-officedocument.presentationml.presentation (ZIP archive)
+  // Frontend validates file structure/signature, so backend accepts any valid data: URL
+  const validMimeTypes = [
+    'data:application/vnd.ms-powerpoint', // .ppt files (Microsoft PowerPoint 97-2003)
+    'data:application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx files (Office Open XML)
+    'data:application/mspowerpoint', // Alternative MIME type for .ppt
+    'data:application/powerpoint', // Alternative MIME type
+    'data:application/x-mspowerpoint', // Alternative MIME type for .ppt
+    'data:application/octet-stream', // Some browsers report this for .ppt/.pptx
+    'data:application/zip' // .pptx files are ZIP archives, some browsers report this
+  ];
   
+  // Check if the base64 string starts with a valid PowerPoint MIME type
+  const isValidPowerPointMime = validMimeTypes.some(mimeType => 
+    powerpoint.startsWith(mimeType)
+  );
+  
+  // Accept any data: URL - frontend validation ensures correct file structure/signature
+  // Frontend performs strict file signature validation (checks ZIP/OLE2 structure) before upload
+  // This allows files with any extension as long as they have valid PowerPoint structure
   if (!isValidPowerPointMime && !powerpoint.startsWith('data:')) {
-    throw new AppError('Invalid PowerPoint format. Must be .ppt or .pptx file.', 400, 'VALIDATION_ERROR');
+    throw new AppError('Invalid PowerPoint format. Must be a PowerPoint file created with Microsoft PowerPoint. File extension does not matter as long as the file structure is valid.', 400, 'VALIDATION_ERROR');
   }
 
   const sizeInBytes = (powerpoint.length * 3) / 4;
   const sizeInMB = sizeInBytes / (1024 * 1024);
   
-  // Allow up to 100MB for PowerPoint files
-  if (sizeInMB > 100) {
-    throw new AppError(`PowerPoint file too large (${sizeInMB.toFixed(1)}MB). Maximum size is 100MB.`, 400, 'VALIDATION_ERROR');
+  // Cloudinary has a 10MB limit for raw file uploads on standard plans
+  // Note: upload_large may support larger files on upgraded plans, but we validate at 10MB for compatibility
+  if (sizeInMB > 10) {
+    throw new AppError(`PowerPoint file too large (${sizeInMB.toFixed(1)}MB). Maximum size is 10MB due to Cloudinary's raw file upload limit. Please compress your PowerPoint file.`, 400, 'VALIDATION_ERROR');
   }
 
   Logger.info(`Attempting to upload PowerPoint for user ${userId}, size: ${sizeInMB.toFixed(2)}MB`);

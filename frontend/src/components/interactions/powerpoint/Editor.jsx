@@ -45,24 +45,123 @@ const PowerPointEditor = ({ slide, onUpdate }) => {
     });
   }, [question, powerpointUrl, powerpointPublicId, onUpdate]);
 
+  // Validate if file is a genuine MS PowerPoint file by checking file structure/signature
+  // Accepts files with any extension as long as they have valid PowerPoint structure
+  const validateMSPowerPointFile = async (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        try {
+          const arrayBuffer = e.target.result;
+          const uint8Array = new Uint8Array(arrayBuffer);
+          
+          // Check for .pptx format (Office Open XML) - ZIP archive with PowerPoint structure
+          // .pptx files are ZIP archives - check for ZIP signature (PK\x03\x04 or PK\x05\x06 for empty ZIP)
+          // Standard ZIP signature: PK\x03\x04 (50 4B 03 04)
+          const isZipFile = uint8Array[0] === 0x50 && uint8Array[1] === 0x4B && 
+                           (uint8Array[2] === 0x03 || uint8Array[2] === 0x05 || uint8Array[2] === 0x07) && 
+                           (uint8Array[3] === 0x04 || uint8Array[3] === 0x06 || uint8Array[3] === 0x08);
+          
+          if (isZipFile) {
+            // It's a ZIP file, now check if it contains PowerPoint-specific content
+            // Office Open XML files have [Content_Types].xml and ppt/ folder in the ZIP structure
+            // Read more bytes (up to 50KB) to find PowerPoint markers in the ZIP file headers
+            const textDecoder = new TextDecoder('utf-8', { fatal: false });
+            const bytesToRead = Math.min(50000, uint8Array.length);
+            const fileContent = textDecoder.decode(uint8Array.slice(0, bytesToRead));
+            
+            // Check for PowerPoint-specific markers in the ZIP structure
+            // These markers appear in the ZIP local file headers (which are uncompressed)
+            const hasPowerPointMarkers = 
+              fileContent.includes('[Content_Types].xml') || 
+              fileContent.includes('ppt/') || 
+              fileContent.includes('ppt/presentation.xml') ||
+              fileContent.includes('ppt/slides/') ||
+              fileContent.includes('application/vnd.openxmlformats-officedocument.presentationml');
+            
+            if (hasPowerPointMarkers) {
+              resolve(true);
+              return;
+            }
+          }
+          
+          // Check for .ppt format (OLE2 compound document)
+          // .ppt files are OLE2 compound documents
+          // Check for OLE2 signature: D0 CF 11 E0 A1 B1 1A E1
+          const isOLE2File = uint8Array[0] === 0xD0 && uint8Array[1] === 0xCF && 
+                            uint8Array[2] === 0x11 && uint8Array[3] === 0xE0 && 
+                            uint8Array[4] === 0xA1 && uint8Array[5] === 0xB1 && 
+                            uint8Array[6] === 0x1A && uint8Array[7] === 0xE1;
+          
+          if (isOLE2File) {
+            // It's an OLE2 file, likely a genuine .ppt file
+            // Additional validation could check for PowerPoint-specific streams, but OLE2 signature is sufficient
+            resolve(true);
+            return;
+          }
+          
+          // File doesn't match either PowerPoint format
+          reject(new Error('NOT_MS_POWERPOINT'));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      reader.onerror = () => reject(new Error('FILE_READ_ERROR'));
+      // Read first 50KB for validation (enough to check signatures and ZIP structure)
+      const blob = file.slice(0, Math.min(50000, file.size));
+      reader.readAsArrayBuffer(blob);
+    });
+  };
+
   const handlePowerPointUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    const validTypes = ['application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
-    const validExtensions = ['.ppt', '.pptx'];
-    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    // Validate file type - accept any extension as long as file structure is valid PowerPoint
+    // We validate by file signature/structure, not extension, to support files with any extension
+    const validTypes = [
+      'application/vnd.ms-powerpoint', // .ppt files
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx files
+      'application/mspowerpoint', // Alternative MIME type for .ppt
+      'application/powerpoint', // Alternative MIME type
+      'application/x-mspowerpoint', // Alternative MIME type for .ppt
+      'application/octet-stream', // Some browsers report this for .ppt/.pptx
+      'application/zip' // .pptx files are ZIP archives
+    ];
     
-    if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
-      toast.error(t('slide_editors.powerpoint.invalid_file_type'));
+    // Log if MIME type doesn't match expected types (but don't reject - we validate by structure)
+    if (file.type && !file.type.includes('octet-stream') && !validTypes.includes(file.type) && 
+        !file.type.includes('powerpoint') && !file.type.includes('presentation') && 
+        !file.type.includes('zip')) {
+      console.warn('Unexpected MIME type for file:', file.type, 'File:', file.name, '- Will validate by file structure');
+    }
+
+    // Validate file size (max 10MB - Cloudinary's raw file upload limit)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error(t('slide_editors.powerpoint.file_too_large'));
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       return;
     }
 
-    // Validate file size (max 100MB)
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error(t('slide_editors.powerpoint.file_too_large'));
-      return;
+    // Validate if it's a genuine MS PowerPoint file by checking file structure/signature
+    // This accepts files with any extension as long as they have valid PowerPoint structure
+    try {
+      await validateMSPowerPointFile(file);
+    } catch (error) {
+      if (error.message === 'NOT_MS_POWERPOINT') {
+        toast.error(t('slide_editors.powerpoint.not_ms_powerpoint'));
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      } else {
+        // Other validation errors - continue with upload (fallback)
+        console.warn('PowerPoint validation warning:', error);
+      }
     }
 
     try {
@@ -213,7 +312,7 @@ const PowerPointEditor = ({ slide, onUpdate }) => {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".ppt,.pptx"
+                  accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
                   onChange={handlePowerPointUpload}
                   className="hidden"
                   disabled={isUploading}

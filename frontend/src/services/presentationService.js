@@ -370,3 +370,14 @@ export const clearSlideResults = async (presentationId, slideId) => {
     throw error;
   }
 };
+
+// Recalculate and fix scores for existing quiz results
+export const recalculatePresentationScores = async (presentationId) => {
+  try {
+    const response = await api.post(`/presentations/${presentationId}/recalculate-scores`);
+    return response.data;
+  } catch (error) {
+    console.error('Recalculate scores error:', error);
+    throw error;
+  }
+};

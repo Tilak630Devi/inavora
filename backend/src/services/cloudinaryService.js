@@ -76,17 +76,19 @@ async function uploadDocument(base64Document, folder = 'inavora/documents') {
 
 /**
  * Upload PowerPoint file to Cloudinary
- * @param {string} base64PowerPoint - Base64 encoded PowerPoint file
+ * Supports both .ppt (Microsoft PowerPoint 97-2003) and .pptx (Office Open XML) formats
+ * @param {string} base64PowerPoint - Base64 encoded PowerPoint file (.ppt or .pptx)
  * @param {string} folder - Cloudinary folder path
  * @returns {Object} Upload result with URL and public ID
  */
 async function uploadPowerPoint(base64PowerPoint, folder = 'inavora/powerpoint') {
   try {
-    // For raw uploads, Cloudinary doesn't validate file formats
-    // We'll upload as raw resource and let Cloudinary handle it
+    // Cloudinary has a 10MB limit for raw file uploads on standard plans
+    // Files larger than 10MB should be rejected by validation before reaching this function
+    // Both .ppt and .pptx files are uploaded as raw resources
     const result = await cloudinary.uploader.upload(base64PowerPoint, {
       folder: folder,
-      resource_type: 'raw', // PowerPoint files are raw resources
+      resource_type: 'raw', // PowerPoint files (.ppt and .pptx) are uploaded as raw resources
       use_filename: true,
       unique_filename: true,
       overwrite: false
@@ -101,6 +103,10 @@ async function uploadPowerPoint(base64PowerPoint, folder = 'inavora/powerpoint')
     // Log the full error for debugging
     if (error.http_code) {
       Logger.error(`Cloudinary error details: http_code=${error.http_code}, message=${error.message}`);
+    }
+    // Provide a helpful error message if it's a size limit error
+    if (error.message && error.message.includes('too large')) {
+      throw new Error('File size exceeds Cloudinary\'s 10MB limit for raw file uploads. Please compress your PowerPoint file.');
     }
     throw new Error(error.message || 'Failed to upload PowerPoint to Cloudinary');
   }
