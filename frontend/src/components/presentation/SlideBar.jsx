@@ -255,6 +255,7 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
     currentX: null,
     currentY: null,
     draggedElement: null,
+    lastDragOverIndex: null, // Store last known drag over index
   });
   const [touchDragActive, setTouchDragActive] = useState(false);
 
@@ -848,7 +849,13 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
   // Drag handlers - defined after auto-scroll functions
   const handleDragEnd = (e) => {
     if (e.target) {
+      e.target.style.transition = 'all 0.2s ease-out';
       e.target.style.opacity = '1';
+      setTimeout(() => {
+        if (e.target) {
+          e.target.style.transition = '';
+        }
+      }, 200);
     }
     stopAutoScroll();
     setDraggedIndex(null);
@@ -927,6 +934,8 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
       startTime: Date.now(), // Track when touch started
       containerScrollLeft: containerRef.current?.scrollLeft || 0,
       containerScrollTop: containerRef.current?.scrollTop || 0,
+      wasScrolling: false, // Track if user was scrolling
+      lastDragOverIndex: null,
     };
 
     setTouchDragActive(true);
@@ -995,16 +1004,18 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
     const dragState = touchDragStateRef.current;
     stopAutoScroll();
     
-    // Remove non-passive handler if it was added
-    if (dragState.nonPassiveHandler) {
-      document.removeEventListener('touchmove', dragState.nonPassiveHandler);
-      dragState.nonPassiveHandler = null;
-    }
-    
     if (dragState.draggedElement) {
+      dragState.draggedElement.style.transition = 'all 0.2s ease-out';
       dragState.draggedElement.style.opacity = '';
       dragState.draggedElement.style.transform = '';
       dragState.draggedElement.style.zIndex = '';
+      dragState.draggedElement.style.cursor = '';
+      
+      setTimeout(() => {
+        if (dragState.draggedElement) {
+          dragState.draggedElement.style.transition = '';
+        }
+      }, 200);
     }
     touchDragStateRef.current = {
       isActive: false,
@@ -1016,7 +1027,9 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
       draggedElement: null,
       containerScrollLeft: null,
       containerScrollTop: null,
-      nonPassiveHandler: null,
+      wasScrolling: false,
+      isDragging: false,
+      lastDragOverIndex: null,
     };
     setTouchDragActive(false);
     setDraggedIndex(null);
@@ -1029,13 +1042,15 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
     if (!dragState.isActive) return;
 
     const touch = e.touches[0];
+    if (!touch) return;
+    
     const touchX = touch.clientX;
     const touchY = touch.clientY;
     
     // Check if user has moved enough to consider it a drag (not a tap or scroll)
     const deltaX = Math.abs(touchX - dragState.startX);
     const deltaY = Math.abs(touchY - dragState.startY);
-    const DRAG_THRESHOLD = 15; // Increased threshold to allow scrolling
+    const DRAG_THRESHOLD = 10; // Reduced threshold for better responsiveness
     
     // Check if container has scrolled - if so, user is scrolling, not dragging
     const container = containerRef.current;
@@ -1048,44 +1063,39 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
     // For horizontal layout, vertical movement = scrolling
     // For vertical layout, horizontal movement = scrolling
     const isScrollDirection = isHorizontal 
-      ? (deltaY > deltaX && deltaY > 8) // Vertical movement in horizontal layout = scrolling
-      : (deltaX > deltaY && deltaX > 8); // Horizontal movement in vertical layout = scrolling
+      ? (deltaY > deltaX * 1.5 && deltaY > 15) // Vertical movement in horizontal layout = scrolling (more strict)
+      : (deltaX > deltaY * 1.5 && deltaX > 15); // Horizontal movement in vertical layout = scrolling (more strict)
     
-    // If container scrolled or movement is in scroll direction, cancel drag and allow scrolling
+    // If container scrolled or movement is clearly in scroll direction, cancel drag and allow scrolling
+    // Only cancel if we haven't started dragging yet
     if ((hasScrolled || isScrollDirection) && !dragState.hasMoved) {
+      dragState.wasScrolling = true;
       handleTouchCancel();
       return;
     }
     
+    // If we've already started dragging, don't cancel even if there's some scroll
     if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
       // User is dragging - mark as moved and add visual feedback
       if (!dragState.hasMoved) {
         dragState.hasMoved = true;
+        dragState.isDragging = true;
         
         // Add visual feedback only when dragging starts
         if (dragState.draggedElement) {
-          dragState.draggedElement.style.opacity = '0.7';
-          dragState.draggedElement.style.transform = 'scale(1.1)';
+          dragState.draggedElement.style.opacity = '0.8';
+          dragState.draggedElement.style.transform = 'scale(1.05)';
           dragState.draggedElement.style.zIndex = '1000';
           dragState.draggedElement.style.willChange = 'transform';
           dragState.draggedElement.style.pointerEvents = 'none';
+          dragState.draggedElement.style.transition = 'none'; // Disable transitions during drag
+          dragState.draggedElement.style.cursor = 'grabbing';
         }
-        
-        // Now switch to non-passive listener to prevent scrolling
-        // Remove passive listener and add non-passive one
-        const newTouchMoveHandler = (evt) => {
-          evt.preventDefault();
-          evt.stopPropagation();
-          handleTouchMove(evt);
-        };
-        
-        // Remove old passive listener
-        document.removeEventListener('touchmove', handleTouchMove);
-        // Add new non-passive listener
-        document.addEventListener('touchmove', newTouchMoveHandler, { passive: false });
-        
-        // Store the new handler for cleanup
-        dragState.nonPassiveHandler = newTouchMoveHandler;
+      }
+      
+      // Now that we're dragging, prevent default to stop scrolling
+      if (e.cancelable && dragState.isDragging) {
+        e.preventDefault();
       }
     } else {
       // Not enough movement yet - allow scrolling
@@ -1102,8 +1112,8 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
       const deltaX = touchX - dragState.startX;
       const deltaY = touchY - dragState.startY;
       
-      // Use transform3d for hardware acceleration
-      dragState.draggedElement.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0) scale(1.1)`;
+      // Use transform3d for hardware acceleration with smoother scale
+      dragState.draggedElement.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0) scale(1.05)`;
     }
 
     // Calculate drag over index - check all items for accurate detection
@@ -1111,25 +1121,46 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
     const startIdx = dragState.startIndex;
     
     // Check all items to find the correct drop position
+    // Also check the last slide even if it's the startIdx (for edge cases)
     for (let idx = 0; idx < itemRefs.current.length; idx++) {
       const ref = itemRefs.current[idx];
-      if (ref && idx !== startIdx) {
+      if (ref) {
         const rect = ref.getBoundingClientRect();
         if (isHorizontal) {
           // Horizontal layout - check if touch is over this slide
           if (touchX >= rect.left && touchX <= rect.right) {
             const centerX = rect.left + rect.width / 2;
             // Determine if we should insert before or after this slide
-            newDragOverIndex = touchX < centerX ? idx : idx + 1;
-            break;
+            if (idx !== startIdx) {
+              newDragOverIndex = touchX < centerX ? idx : idx + 1;
+              break;
+            } else {
+              // If we're over the dragged slide itself, check if we're past its center
+              // This helps when dragging to the end
+              if (touchX > centerX && idx === itemRefs.current.length - 1) {
+                // We're past the center of the last slide, so drop after it
+                newDragOverIndex = idx + 1;
+                break;
+              }
+            }
           }
         } else {
           // Vertical layout - check if touch is over this slide
           if (touchY >= rect.top && touchY <= rect.bottom) {
             const centerY = rect.top + rect.height / 2;
             // Determine if we should insert before or after this slide
-            newDragOverIndex = touchY < centerY ? idx : idx + 1;
-            break;
+            if (idx !== startIdx) {
+              newDragOverIndex = touchY < centerY ? idx : idx + 1;
+              break;
+            } else {
+              // If we're over the dragged slide itself, check if we're past its center
+              // This helps when dragging to the end
+              if (touchY > centerY && idx === itemRefs.current.length - 1) {
+                // We're past the center of the last slide, so drop after it
+                newDragOverIndex = idx + 1;
+                break;
+              }
+            }
           }
         }
       }
@@ -1147,27 +1178,67 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
         }
       }
       
-      // Check if we're after the last slide
+      // Check if we're after the last slide or near the end of container
       if (newDragOverIndex === null && itemRefs.current[itemRefs.current.length - 1]) {
         const lastRect = itemRefs.current[itemRefs.current.length - 1].getBoundingClientRect();
-        if (isHorizontal && touchX > lastRect.right) {
-          newDragOverIndex = itemRefs.current.length;
-        } else if (!isHorizontal && touchY > lastRect.bottom) {
+        const container = containerRef.current;
+        const containerRect = container?.getBoundingClientRect();
+        
+        // Check if touch is after the last slide OR near the end of the container
+        const isAfterLastSlide = isHorizontal 
+          ? touchX > lastRect.right
+          : touchY > lastRect.bottom;
+        
+        const isNearContainerEnd = containerRect && (isHorizontal
+          ? touchX > containerRect.right - 50 // Within 50px of container right edge
+          : touchY > containerRect.bottom - 50); // Within 50px of container bottom edge
+        
+        if (isAfterLastSlide || isNearContainerEnd) {
           newDragOverIndex = itemRefs.current.length;
         }
       }
     }
 
-    // Adjust for insertion point - if dragging forward, subtract 1
+    // Adjust for insertion point
+    // If dragging forward (to a higher index), we need to account for the removed item
     if (newDragOverIndex !== null && newDragOverIndex > startIdx) {
-      newDragOverIndex -= 1;
+      // If newDragOverIndex is itemRefs.current.length (after last slide), it means drop at last position
+      if (newDragOverIndex === itemRefs.current.length) {
+        newDragOverIndex = itemRefs.current.length - 1;
+      } else {
+        // For other forward moves, subtract 1 because the dragged item will be removed from its position
+        newDragOverIndex -= 1;
+      }
+    }
+    // If dragging backward (to a lower index), no adjustment needed
+
+    // Fallback: If we're dragging forward and haven't found a target, and we're past the middle of the last slide, drop at last position
+    if (newDragOverIndex === null && startIdx < itemRefs.current.length - 1) {
+      const lastRef = itemRefs.current[itemRefs.current.length - 1];
+      if (lastRef) {
+        const lastRect = lastRef.getBoundingClientRect();
+        const lastCenter = isHorizontal 
+          ? lastRect.left + lastRect.width / 2
+          : lastRect.top + lastRect.height / 2;
+        const touchPos = isHorizontal ? touchX : touchY;
+        
+        if (touchPos > lastCenter) {
+          newDragOverIndex = itemRefs.current.length - 1;
+        }
+      }
     }
 
+    // Debug log removed - too verbose
+
     // Update drag over index if it changed
-    if (newDragOverIndex !== null && newDragOverIndex !== startIdx && newDragOverIndex >= 0 && newDragOverIndex < itemRefs.current.length) {
+    // Allow dragOverIndex to be up to itemRefs.current.length - 1 (last position)
+    if (newDragOverIndex !== null && newDragOverIndex !== startIdx && newDragOverIndex >= 0 && newDragOverIndex <= itemRefs.current.length - 1) {
       setDragOverIndex(newDragOverIndex);
+      // Store in ref as backup
+      dragState.lastDragOverIndex = newDragOverIndex;
     } else if (newDragOverIndex === null || newDragOverIndex === startIdx) {
       setDragOverIndex(null);
+      // Don't clear lastDragOverIndex yet - keep it as fallback
     }
     
     // Handle auto-scroll
@@ -1185,29 +1256,40 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
     const hasMoved = dragState.hasMoved;
     const startIndex = dragState.startIndex;
 
-    // Reset dragged element styles
+    // Reset dragged element styles with smooth transition
     if (dragState.draggedElement && hasMoved) {
+      dragState.draggedElement.style.transition = 'all 0.2s ease-out';
       dragState.draggedElement.style.opacity = '';
       dragState.draggedElement.style.transform = '';
       dragState.draggedElement.style.zIndex = '';
       dragState.draggedElement.style.willChange = '';
       dragState.draggedElement.style.pointerEvents = '';
+      dragState.draggedElement.style.cursor = '';
+      
+      // Remove transition after animation completes
+      setTimeout(() => {
+        if (dragState.draggedElement) {
+          dragState.draggedElement.style.transition = '';
+        }
+      }, 200);
     }
 
     // Perform reorder if we have a valid drop target and user actually dragged
-    if (hasMoved && currentDragOverIndex !== null && 
-        currentDragOverIndex !== startIndex && 
-        currentDragOverIndex >= 0 && 
-        currentDragOverIndex < itemRefs.current.length) {
-      handleSlideReorder(startIndex, currentDragOverIndex);
-    } else if (!hasMoved && startIndex !== null) {
-      // If user didn't drag, treat it as a tap/click - select the slide immediately
-      // Prevent default to avoid double-triggering
-      if (e && e.preventDefault) {
-        e.preventDefault();
-      }
-      // Directly call handleSlideSelect - don't wait for state reset
-      handleSlideSelect(startIndex);
+    const wasScrolling = dragState.wasScrolling;
+    // Use currentDragOverIndex from state, or fallback to lastDragOverIndex from ref
+    const finalDragOverIndex = currentDragOverIndex !== null ? currentDragOverIndex : dragState.lastDragOverIndex;
+    
+    if (hasMoved && finalDragOverIndex !== null && 
+        finalDragOverIndex !== startIndex && 
+        finalDragOverIndex >= 0 && 
+        finalDragOverIndex <= itemRefs.current.length - 1) {
+      handleSlideReorder(startIndex, finalDragOverIndex);
+    } else if (!hasMoved && !wasScrolling && startIndex !== null) {
+      // If user didn't drag and wasn't scrolling, treat it as a tap/click - select the slide
+      // Use setTimeout to avoid interfering with scroll
+      setTimeout(() => {
+        handleSlideSelect(startIndex);
+      }, 100);
     }
 
     // Reset state immediately
@@ -1223,7 +1305,9 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
       startTime: null,
       containerScrollLeft: null,
       containerScrollTop: null,
-      nonPassiveHandler: null,
+      wasScrolling: false,
+      isDragging: false,
+      lastDragOverIndex: null,
     };
     
     // Use requestAnimationFrame to ensure state updates happen after the selection
@@ -1240,14 +1324,18 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
     if (!touchDragActive) return;
 
     const touchMoveHandler = (e) => {
+      // Call handleTouchMove - it will handle preventDefault when needed
       handleTouchMove(e);
     };
     const touchEndHandler = (e) => handleTouchEnd(e);
     const touchCancelHandler = () => handleTouchCancel();
     
+    // Start with passive listener - handleTouchMove will call preventDefault when dragging
+    // Note: preventDefault in passive listeners will be ignored, but that's okay
+    // The actual prevention happens when we detect dragging in handleTouchMove
     document.addEventListener('touchmove', touchMoveHandler, { passive: false });
-    document.addEventListener('touchend', touchEndHandler, { passive: false });
-    document.addEventListener('touchcancel', touchCancelHandler);
+    document.addEventListener('touchend', touchEndHandler, { passive: true });
+    document.addEventListener('touchcancel', touchCancelHandler, { passive: true });
     
     return () => {
       document.removeEventListener('touchmove', touchMoveHandler);
@@ -1263,7 +1351,10 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
         <div 
           className="flex items-center gap-3 px-4 py-3 overflow-x-auto scrollbar-hide touch-pan-x" 
           ref={containerRef}
-          style={{ touchAction: 'pan-x' }} // Allow horizontal scrolling
+          style={{ 
+            touchAction: 'pan-x pinch-zoom',
+            WebkitOverflowScrolling: 'touch'
+          }} // Allow horizontal scrolling
           onDragOver={(e) => {
             e.preventDefault();
             if (draggedIndex !== null) {
@@ -1300,7 +1391,13 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
           </button>
 
           {/* Slides List - Horizontal Scroll */}
-          <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div 
+            className="flex items-center gap-3 flex-1 min-w-0 overflow-x-auto scrollbar-hide"
+            style={{ 
+              WebkitOverflowScrolling: 'touch',
+              touchAction: 'pan-x pinch-zoom'
+            }}
+          >
             {displaySlides.map((slide, index) => (
               <div key={slide.id} className="flex flex-col items-center gap-1">
               <div
@@ -1435,7 +1532,10 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
       <div 
         className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar touch-pan-y" 
           ref={containerRef}
-          style={{ touchAction: 'pan-y' }} // Allow vertical scrolling
+          style={{ 
+            touchAction: 'pan-y pinch-zoom',
+            WebkitOverflowScrolling: 'touch'
+          }} // Allow vertical scrolling
           onDragOver={(e) => {
             e.preventDefault();
             if (draggedIndex !== null) {
@@ -1461,15 +1561,11 @@ const SlideBar = ({ slides, currentSlideIndex, onSlideSelect, onDeleteSlide, onN
             onDragOver={(e) => handleDragOver(e, index)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, index)}
-            onTouchStart={(e) => {
-              if (isSlideDraggable(slide)) {
-                handleTouchStart(e, index);
-              } else {
-                e.preventDefault();
-              }
-            }}
-            onClick={() => {
+            onClick={(e) => {
+              // Only handle click if not dragging and touch wasn't used
+              // On touch devices, handleTouchEnd will handle the selection
               if (!isDragging && !touchDragActive) {
+                e.stopPropagation();
                 handleSlideSelect(index);
               }
             }}
